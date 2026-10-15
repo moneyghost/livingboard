@@ -1,0 +1,39 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Frost Golem BP",
+    "description": "Generato da Sinapsi dalla lavagna",
+    "uuid": "88663ada-a4cf-48ea-ae0a-66f950af51e5",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      21,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "data",
+      "uuid": "a7988982-86b3-4374-b27d-79bc9dc55391",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ],
+  "dependencies": [
+    {
+      "uuid": "5108f8dc-058e-49a1-bf55-04825f9e3b1d",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

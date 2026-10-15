@@ -1,0 +1,21 @@
+{
+  "name": "sinapsi",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Lavagna collaborativa open source che l'AI capisce, via MCP",
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@12.4.2",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "pnpm -r --parallel --filter @sinapsi/server --filter @sinapsi/web run dev",
+    "dev:lan": "pnpm -r --parallel --filter @sinapsi/server --filter @sinapsi/web run dev:lan",
+    "build": "pnpm --filter @sinapsi/web run build",
+    "start": "pnpm --filter @sinapsi/server run start",
+    "start:lan": "pnpm --filter @sinapsi/server run start:lan",
+    "typecheck": "pnpm -r run typecheck",
+    "smoke": "pnpm --filter @sinapsi/server run smoke"
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "format_version": "1.20.10",
+  "minecraft:recipe_shaped": {
+    "description": {
+      "identifier": "sinapsi:frost_sword"
+    },
+    "tags": [
+      "crafting_table"
+    ],
+    "pattern": [
+      "SS ",
+      " S ",
+      " T "
+    ],
+    "key": {
+      "S": {
+        "item": "sinapsi:frost_shard"
+      },
+      "T": {
+        "item": "minecraft:stick"
+      }
+    },
+    "unlock": [
+      {
+        "item": "sinapsi:frost_shard"
+      }
+    ],
+    "result": {
+      "item": "sinapsi:frost_sword"
+    }
+  }
+}

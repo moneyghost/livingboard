@@ -1,0 +1,29 @@
+{
+  "format_version": 2,
+  "header": {
+    "name": "Frost Golem RP",
+    "description": "Generato da Sinapsi dalla lavagna",
+    "uuid": "5108f8dc-058e-49a1-bf55-04825f9e3b1d",
+    "version": [
+      1,
+      0,
+      0
+    ],
+    "min_engine_version": [
+      1,
+      21,
+      0
+    ]
+  },
+  "modules": [
+    {
+      "type": "resources",
+      "uuid": "9e01b574-1f8f-4cd5-b2a4-7a72593bc2ef",
+      "version": [
+        1,
+        0,
+        0
+      ]
+    }
+  ]
+}

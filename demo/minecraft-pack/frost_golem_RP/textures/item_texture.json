@@ -1,0 +1,12 @@
+{
+  "resource_pack_name": "frost_golem",
+  "texture_name": "atlas.items",
+  "texture_data": {
+    "frost_shard": {
+      "textures": "textures/items/prismarine_shard"
+    },
+    "frost_sword": {
+      "textures": "textures/items/diamond_sword"
+    }
+  }
+}

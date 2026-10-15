@@ -1,0 +1,24 @@
+{
+  "format_version": "1.10.0",
+  "minecraft:client_entity": {
+    "description": {
+      "identifier": "sinapsi:frost_golem",
+      "materials": {
+        "default": "entity_alphatest"
+      },
+      "textures": {
+        "default": "textures/entity/iron_golem/iron_golem"
+      },
+      "geometry": {
+        "default": "geometry.irongolem"
+      },
+      "render_controllers": [
+        "controller.render.default"
+      ],
+      "spawn_egg": {
+        "base_color": "#a5d8ff",
+        "overlay_color": "#e7f5ff"
+      }
+    }
+  }
+}

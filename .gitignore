@@ -1,0 +1,18 @@
+node_modules
+dist
+*.tsbuildinfo
+coverage
+
+# Boards, saved views and anything people drew: local data, never committed
+data
+
+# Images dumped by the MCP terminal client (scripts/mcp.ts)
+get_board_image-*.png
+get_image-*.png
+
+.env
+.env.*
+*.log
+.DS_Store
+Thumbs.db
+.claude/settings.local.json

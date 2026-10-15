@@ -1,0 +1,30 @@
+{
+  "name": "@sinapsi/server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false src/index.ts",
+    "dev:lan": "tsx watch --clear-screen=false src/index.ts --lan",
+    "start": "tsx src/index.ts",
+    "start:lan": "tsx src/index.ts --lan",
+    "smoke": "tsx scripts/agent-smoke.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
+    "@sinapsi/shared": "workspace:*",
+    "fractional-indexing": "3.2.0",
+    "lib0": "^0.2.119",
+    "ws": "^8.22.0",
+    "y-protocols": "^1.0.7",
+    "yjs": "^13.6.33",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "@types/ws": "^8.18.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
+  }
+}
