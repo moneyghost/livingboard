@@ -324,6 +324,11 @@ export interface SinapsiElementData {
   ghostGroup?: string;
   /** The node this drawing belongs to (an annotation, a note, an extension): it moves with it. */
   nodeId?: string;
+  /** One agent drawing = every element one tool call made: the unit the agent updates or erases. */
+  drawingId?: string;
+  /** What the drawing is (svg, table, chart, note, image...) and its title: how the agent finds it again. */
+  kind?: string;
+  title?: string;
 }
 
 export function sinapsiData(el: { customData?: Record<string, unknown> }): SinapsiElementData | undefined {

@@ -29,13 +29,19 @@ import {
   type Viewport,
 } from "./geometry";
 import { useNow, useYMap } from "./hooks";
+import { BUBBLE_W, Bubble, bubbleHeight, buildThreads, Inbox, MessageMark, type Thread, useReadMessages } from "./Messages";
 import { useSavedViews } from "./registry";
 import { ViewCard } from "./ViewCard";
 
 interface Props {
   model: BoardModel;
+  board: string;
   viewport: Viewport;
+  /** Full AI lens: every idea's label, relations, build badges. Off = a clean board. */
   lens: boolean;
+  /** Selected element ids: the idea they belong to shows its label even with the lens off. */
+  selection: string[];
+  onFocus: (nodeId: string) => void;
   /** Always draw the outline around each idea; otherwise only on hover / open / while Claude works on it. */
   showBoxes: boolean;
   elements: Map<string, ExcalidrawElement>;
@@ -61,12 +67,13 @@ const BUILD_ICON: Record<string, string> = {
 type Placed = { left: number; top: number; size: "full" | "short" | "icon" };
 
 /**
- * The AI layer drawn on top of the canvas. Ordering rules: drawings own the
- * canvas, so the layer never covers them if it can avoid it; chips dodge each
- * other; comments wait in a badge; views open on demand (or when pinned) in free
- * space; zoomed out, only big titles remain.
+ * The AI layer drawn on top of the canvas. The board belongs to the drawings:
+ * by default the only things on top are Claude's messages (open until read),
+ * the label of what you select, proposals waiting for a yes, and views you
+ * opened or pinned. The full lens (labels, relations, build badges) is opt-in.
+ * Whatever is shown dodges drawings, arrows and itself.
  */
-export function Overlay({ model, viewport: v, lens, showBoxes, elements }: Props) {
+export function Overlay({ model, board, viewport: v, lens, selection, onFocus, showBoxes, elements }: Props) {
   const candidates = useYMap(model.candidates);
   const nodes = useYMap(model.nodes);
   const edges = useYMap(model.edges);
@@ -83,6 +90,9 @@ export function Overlay({ model, viewport: v, lens, showBoxes, elements }: Props
   const [opened, setOpened] = useState<Set<string>>(new Set());
   const [closedPinned, setClosedPinned] = useState<Set<string>>(new Set());
   const savedViews = useSavedViews();
+  const { read, markRead } = useReadMessages(board, comments.values());
+  /** A read conversation reopened from its mark. */
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const mode = (settingsMap.get("mode") as Settings["mode"]) ?? "implicit";
   const agent = agentMap.get("state") as AgentState | undefined;
@@ -145,7 +155,7 @@ export function Overlay({ model, viewport: v, lens, showBoxes, elements }: Props
   const toScreenPt = (x: number, y: number) => ({ x: (x + v.scrollX) * v.zoom, y: (y + v.scrollY) * v.zoom });
   const segs: [{ x: number; y: number }, { x: number; y: number }][] = [];
   const aiRects: BBox[] = [];
-  if (!far && lens) {
+  if (!far) {
     const wireIds = new Set(links.map((l) => l.elementIds[0]));
     for (const el of elements.values()) {
       if (el.isDeleted) continue;
@@ -169,11 +179,19 @@ export function Overlay({ model, viewport: v, lens, showBoxes, elements }: Props
     segs.filter(([p, q]) => segmentHitsRect(p, q, rect)).length;
   const blocked = (rect: BBox, selfId: string, placed: BBox[]) => cost(rect, selfId, placed) > 0;
 
+  // With the lens off, a label appears only where it is needed: the idea you selected,
+  // the one whose card is open, proposals waiting for a yes in hybrid mode.
+  const selectedSet = new Set(selection);
+  const selectedCand = selection.length ? shapes.find((c) => c.elementIds.some((id) => selectedSet.has(id)))?.id : undefined;
+  const wantsChip = (c: Candidate, node: AINode) =>
+    lens || c.id === selectedCand || c.id === openId || (mode === "hybrid" && node.status === "proposed");
+
   // Chips dodge each other, arrows and drawings: above, below, beside — else shrink to an icon.
   const chips = new Map<string, Placed>();
   const chipRects: BBox[] = [];
-  if (!far && lens) {
+  if (!far) {
     for (const { c, node, r } of visible) {
+      if (!wantsChip(c, node)) continue;
       const hasView = views.has(`v_${c.id}`);
       const w = Math.min(320, 52 + (node.type.length + node.label.length) * 6.6 + (node.assumptions.length ? 24 : 0) + (hasView ? 26 : 0));
       const options = [
@@ -210,21 +228,49 @@ export function Overlay({ model, viewport: v, lens, showBoxes, elements }: Props
     }
   }
 
-  // Comment badges get the same treatment, after the chips.
-  const badgeSpot = (id: string, r: ScreenRect) => {
-    const w = 46;
-    const h = 22;
+  // Claude's messages: open next to what they are about until read, then a small mark.
+  // Unread ones with no room on screen (about the whole board, off-screen, zoomed out) go to the inbox.
+  const threadList = buildThreads(comments.values(), read, (id) => candidates.has(id));
+  const inbox: Thread[] = [];
+  const bubbles: { t: Thread; left: number; top: number; open: boolean; tail: [number, number, number, number] }[] = [];
+  for (const t of threadList) {
+    const cand = t.anchor ? candidates.get(t.anchor) : undefined;
+    const r = cand ? toScreen(cand.bbox, v) : undefined;
+    const open = t.unread.length > 0 || expanded === t.anchor;
+    if (!cand || !r || !isOnScreen(r, v) || far) {
+      if (t.unread.length) inbox.push(t);
+      continue;
+    }
+    if (!open) {
+      const pos = { x: r.left + r.width - 6, y: r.top - 16 };
+      bubbles.push({ t, left: pos.x, top: pos.y, open: false, tail: [0, 0, 0, 0] });
+      continue;
+    }
+    const w = BUBBLE_W;
+    const h = bubbleHeight(t, expanded === t.anchor);
     const options = [
-      { x: r.left - 4, y: r.top + r.height + 4 },
-      { x: r.left + r.width - w + 4, y: r.top + r.height + 4 },
-      { x: r.left + r.width + 6, y: r.top + r.height - h },
-      { x: r.left - w - 6, y: r.top + r.height - h },
-    ];
+      { x: r.left + r.width + 18, y: r.top - 6 },
+      { x: r.left - w - 18, y: r.top - 6 },
+      { x: r.left, y: r.top + r.height + 16 },
+      { x: r.left, y: r.top - h - 16 },
+      { x: r.left + r.width + 18, y: r.top + r.height - h },
+      { x: r.left - w - 18, y: r.top + r.height - h },
+    ].map((o) => ({ x: Math.min(Math.max(8, o.x), v.width - w - 8), y: Math.min(Math.max(8, o.y), v.height - h - 8) }));
     const pos =
-      options.find((o) => !blocked({ x: o.x, y: o.y, w, h }, id, chipRects)) ??
-      [...options].sort((a, b) => cost({ ...a, w, h }, id, chipRects) - cost({ ...b, w, h }, id, chipRects))[0];
+      options.find((o) => !blocked({ x: o.x, y: o.y, w, h }, t.anchor!, chipRects)) ??
+      [...options].sort((a, b) => cost({ ...a, w, h }, t.anchor!, chipRects) - cost({ ...b, w, h }, t.anchor!, chipRects))[0];
     chipRects.push({ x: pos.x, y: pos.y, w, h });
-    return pos;
+    // A thin line from the bubble to the nearest point of what it talks about.
+    const bc = { x: pos.x + w / 2, y: pos.y + h / 2 };
+    const ax = Math.min(Math.max(bc.x, r.left), r.left + r.width);
+    const ay = Math.min(Math.max(bc.y, r.top), r.top + r.height);
+    const bx = Math.min(Math.max(ax, pos.x), pos.x + w);
+    const by = Math.min(Math.max(ay, pos.y), pos.y + h);
+    bubbles.push({ t, left: pos.x, top: pos.y, open: true, tail: [bx, by, ax, ay] });
+  }
+  const readThread = (t: Thread) => {
+    markRead(t.messages.filter((c) => c.author === "ai").map((c) => c.id));
+    if (expanded === t.anchor) setExpanded(null);
   };
 
   // Views: open ones go to free space next to their node (never over drawings or chips).
@@ -287,6 +333,7 @@ export function Overlay({ model, viewport: v, lens, showBoxes, elements }: Props
             </button>
           ))}
         {proposal && <ProposalLayer proposal={proposal} candidates={candidates} v={v} model={model} />}
+        <Inbox threads={inbox} model={model} onGo={onFocus} onRead={readThread} />
       </div>
     );
   }
@@ -320,13 +367,13 @@ export function Overlay({ model, viewport: v, lens, showBoxes, elements }: Props
         const view = views.get(`v_${c.id}`);
         return (
           <div key={c.id}>
-            {lens && (showBoxes || hoverId === c.id || openId === c.id || agentFocus === c.id) && (
+            {((lens && (showBoxes || hoverId === c.id || agentFocus === c.id)) || openId === c.id || selectedCand === c.id) && (
               <div
                 className={`ai-outline ${node.status} ${agentFocus === c.id ? "focus" : ""}`}
                 style={{ left: r.left - 6, top: r.top - 6, width: r.width + 12, height: r.height + 12, borderColor: color, color }}
               />
             )}
-            {lens && chip && (
+            {chip && (
               <NodeChip
                 node={node}
                 type={typeOf(node)}
@@ -343,7 +390,7 @@ export function Overlay({ model, viewport: v, lens, showBoxes, elements }: Props
                 onReject={() => model.rejectNode(c.id)}
               />
             )}
-            {node.build && node.build.state !== "idle" && (
+            {lens && node.build && node.build.state !== "idle" && (
               <button
                 type="button"
                 className={`build-badge ${node.build.state}`}
@@ -354,18 +401,34 @@ export function Overlay({ model, viewport: v, lens, showBoxes, elements }: Props
                 {BUILD_ICON[node.build.state]}
               </button>
             )}
-            {thread && <CommentBadge thread={thread} pos={badgeSpot(c.id, r)} onOpen={() => setOpenId(c.id)} />}
           </div>
         );
       })}
 
-      {/* Comments on things nobody interpreted yet (e.g. an @AI question) still get a badge. */}
-      {shapes
-        .filter((c) => !nodes.has(c.id) && threads.has(c.id))
-        .map((c) => {
-          const r = toScreen(c.bbox, v);
-          return isOnScreen(r, v) ? <CommentBadge key={c.id} thread={threads.get(c.id)!} pos={badgeSpot(c.id, r)} onOpen={() => setOpenId(c.id)} /> : null;
-        })}
+      <svg className="overlay-svg" width={v.width} height={v.height} aria-hidden="true">
+        {bubbles
+          .filter((b) => b.open)
+          .map((b) => (
+            <line key={b.t.anchor} className="msg-tail" x1={b.tail[0]} y1={b.tail[1]} x2={b.tail[2]} y2={b.tail[3]} />
+          ))}
+      </svg>
+      {bubbles.map((b) =>
+        b.open ? (
+          <Bubble
+            key={b.t.anchor}
+            thread={b.t}
+            left={b.left}
+            top={b.top}
+            expanded={expanded === b.t.anchor && !b.t.unread.length}
+            model={model}
+            onRead={() => readThread(b.t)}
+            onCollapse={() => setExpanded(null)}
+          />
+        ) : (
+          <MessageMark key={b.t.anchor} thread={b.t} left={b.left} top={b.top} onOpen={() => setExpanded(b.t.anchor)} />
+        ),
+      )}
+      <Inbox threads={inbox} model={model} onGo={onFocus} onRead={readThread} />
 
       {lens &&
         v.zoom >= EDGE_LABEL_ZOOM &&
@@ -550,23 +613,6 @@ function NodeChip(props: {
         </>
       )}
     </div>
-  );
-}
-
-function CommentBadge({ thread, pos, onOpen }: { thread: Comment[]; pos: { x: number; y: number }; onOpen: () => void }) {
-  const last = thread[thread.length - 1];
-  const asking = last.author === "ai" && last.kind === "question";
-  const preview = last.text.length > 140 ? `${last.text.slice(0, 139)}…` : last.text;
-  return (
-    <button
-      type="button"
-      className={`comment-badge ${asking ? "asking" : ""} ${last.author === "ai" ? "ai" : ""}`}
-      style={{ left: pos.x, top: pos.y }}
-      onClick={onOpen}
-      title={`${last.author === "ai" ? "Claude" : last.authorName}: ${preview}`}
-    >
-      {asking ? "❓" : "💬"} {thread.length}
-    </button>
   );
 }
 

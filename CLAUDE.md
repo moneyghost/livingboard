@@ -21,7 +21,9 @@ Lavagna collaborativa (Excalidraw + Yjs) letta dall'AI via MCP. Panoramica utent
 - `packages/web/src/Overlay.tsx`: lente AI disegnata sopra il canvas in coordinate schermo.
 - `packages/web/src/gestures.ts` + `Dock.tsx`: modalità tablet (dita = navigazione, penna = disegno, tap 2/3 dita = annulla/ripeti).
 - `packages/server/src/registry.ts`: registro viste in `data/views/*.json`, esposto su `/api/views` e via MCP.
-- `packages/server/src/draw.ts`: tutti i disegni dell'agente (forme, note a margine, annotazioni, schizzi da SVG via `svgpath.ts`, grafici, `extend`). Decide sempre il *dove*; limite di 12 parole per elemento.
+- `packages/server/src/draw.ts`: tutti i disegni dell'agente (forme, note, annotazioni, scene SVG, tabelle, grafici, immagini, `extend`). Decide sempre il *dove*; max 20 parole per elemento.
+- `packages/server/src/svgpath.ts`: SVG → scena (rect, ellipse, line/path con archi, text, frecce da marker, transform dei `<g>`, paint ereditato).
+- `packages/web/src/Messages.tsx`: messaggi di Claude sulla lavagna (fumetti aperti finché letti, segno ✳, casella in alto); "letto" in localStorage per dispositivo.
 - `packages/shared/src/layout.ts`: riordino ad albero condiviso da server (`propose_layout`) e browser (pulsante Riordina).
 - `packages/web/src/Document.tsx`: scheda Documento (sezioni `write_doc` + mappa generata dal grafo).
 - `packages/server/src/image.ts`: caricamento immagini per `add_image` (riconoscimento dai byte, dimensioni dall'header, id = sha1 come Excalidraw).
@@ -48,5 +50,8 @@ Lavagna collaborativa (Excalidraw + Yjs) letta dall'AI via MCP. Panoramica utent
 - I disegni AI legati a un nodo hanno `customData.sinapsi.nodeId`: seguono il nodo nel riordino e ne allargano l'ingombro (`footprint`).
 - L'hash di un candidato è sul *contenuto* degli elementi, non sulla posizione: spostare non fa rileggere nulla (`HASH_VERSION` in `board.ts` migra le lavagne vecchie).
 - Disposizione dei disegni AI (`draw.ts`): le frecce esistenti sono percorsi (`lines`), non rettangoli; `extend` valuta ventaglio/pettine a più distanze con un punteggio (sovrapposizioni, frecce sul testo, incroci, distanza) e tiene frecce dritte o ad angolo; `route()` (frecce di `draw`) prova dritta, curva, angolo.
-- Etichette della lente: evitano segmenti di frecce, disegni AI e altri nodi (`cost()` in `Overlay.tsx`); tre taglie (tipo+nome, nome, icona).
-- Lente AI: sotto zoom 0.5 solo titoli grandi; etichette delle relazioni da 0.7 in su; viste solo se aperte (locale) o fissate (`pinned`, condiviso).
+- Lavagna pulita di default: lente spenta (`sinapsi:lens`), etichetta solo sull'idea selezionata, sulla scheda aperta e sulle proposte in modalità ibrida. Fumetti ed etichette evitano frecce, disegni AI e altri nodi (`cost()` in `Overlay.tsx`).
+- Lente AI accesa: sotto zoom 0.5 solo titoli grandi; etichette delle relazioni da 0.7 in su; viste solo se aperte (locale) o fissate (`pinned`, condiviso).
+- Disegni dell'agente: ogni chiamata di un tool di disegno = un `drawingId` in `customData.sinapsi` (con `kind`, `title`, `nodeId`). `replace` cancella il vecchio e (per svg/tabelle/grafici) mette il nuovo al suo posto; `erase` cancella. `board_overview.drawings` li elenca.
+- Modifiche umane ai disegni dell'agente: `board.ts` confronta il contenuto (testi, parti, immagini) a riposo; spostare non conta. Arrivano in `wait_for_changes.drawingEdits` con `added`/`removed`. Le scritture del server (origin `SERVER`) aggiornano solo la base di confronto.
+- Nel pannello browser in background `requestAnimationFrame` non gira: il viewport dell'overlay resta vecchio finché la scheda non è visibile (falso negativo nei test).

@@ -1,6 +1,6 @@
 import { CaptureUpdateAction, Excalidraw, WelcomeScreen } from "@excalidraw/excalidraw";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
-import type { AppState, BinaryFiles, ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
+import type { AppState, BinaryFiles, ExcalidrawImperativeAPI, NormalizedZoomValue } from "@excalidraw/excalidraw/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BoardModel } from "./board";
 import { Collab } from "./collab";
@@ -26,7 +26,22 @@ export default function App() {
   const model = useMemo(() => new BoardModel(collab, () => apiRef.current), [collab]);
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null);
   const [viewport, setViewport] = useState<Viewport>({ scrollX: 0, scrollY: 0, zoom: 1, width: 0, height: 0 });
-  const [lens, setLens] = useState(true);
+  // The full AI lens is opt-in: by default the board shows drawings and Claude's messages only.
+  const [lens, setLensState] = useState(() => {
+    try {
+      return localStorage.getItem("sinapsi:lens") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const setLens = (v: boolean) => {
+    setLensState(v);
+    try {
+      localStorage.setItem("sinapsi:lens", v ? "1" : "0");
+    } catch {
+      // ignore
+    }
+  };
   // Outlines around every idea are noise most of the time: off unless asked (remembered per device).
   const [showBoxes, setShowBoxesState] = useState(() => {
     try {
@@ -127,9 +142,13 @@ export default function App() {
   const focusNode = (nodeId: string) => {
     const c = model.candidates.get(nodeId);
     if (!api || !c) return;
-    const ids = new Set(c.elementIds);
-    const targets = api.getSceneElements().filter((e) => ids.has(e.id));
-    if (targets.length) api.scrollToContent(targets, { animate: true });
+    const s = api.getAppState();
+    // From afar, come close enough to read (messages and labels open from zoom 0.5 up).
+    const z = s.zoom.value < 0.8 ? 1 : s.zoom.value;
+    const cx = c.bbox.x + c.bbox.w / 2;
+    const cy = c.bbox.y + c.bbox.h / 2;
+    // Zoom and scroll in one update: scrollToContent would still use the old zoom.
+    api.updateScene({ appState: { zoom: { value: z as NormalizedZoomValue }, scrollX: s.width / (2 * z) - cx, scrollY: s.height / (2 * z) - cy } });
   };
 
   return (
@@ -166,7 +185,16 @@ export default function App() {
             <WelcomeScreen.Hints.ToolbarHint />
           </WelcomeScreen>
         </Excalidraw>
-        <Overlay model={model} viewport={viewport} lens={lens} showBoxes={showBoxes} elements={elements} />
+        <Overlay
+          model={model}
+          board={board}
+          viewport={viewport}
+          lens={lens}
+          selection={selection}
+          onFocus={focusNode}
+          showBoxes={showBoxes}
+          elements={elements}
+        />
         <Dock
           api={api}
           tablet={device.tablet}

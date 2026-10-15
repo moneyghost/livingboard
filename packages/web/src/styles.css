@@ -1204,28 +1204,173 @@ body {
   color: var(--ai);
 }
 
-.comment-badge {
+/* Claude's messages: open on the board next to what they are about, until read. */
+.msg-bubble {
   position: absolute;
   pointer-events: auto;
-  border: 1px solid var(--line);
   background: #fff;
-  border-radius: 999px;
-  padding: 1px 8px;
-  font-size: 11.5px;
+  border: 1.5px solid color-mix(in srgb, var(--ai) 55%, transparent);
+  border-radius: 14px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.06), 0 10px 28px rgba(217, 119, 87, 0.18);
+  padding: 10px 12px 10px;
+  font-size: 14px;
+  line-height: 1.4;
+  animation: msg-in 0.25s ease-out;
+}
+
+.msg-bubble.asking {
+  border-color: var(--ai);
+  border-width: 2px;
+}
+
+@keyframes msg-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+.msg-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
   font-weight: 700;
+  color: var(--ai);
+  margin-bottom: 4px;
+}
+
+.msg-x {
+  border: 0;
+  background: none;
+  font-size: 18px;
+  line-height: 1;
   color: var(--muted);
+  cursor: pointer;
+}
+
+.msg-body {
+  max-height: 230px;
+  overflow-y: auto;
+}
+
+.msg-body p {
+  margin: 0 0 6px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.msg-body p.mine {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.msg-actions,
+.msg-reply {
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+
+.msg-reply input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 8px;
+  font: inherit;
+  font-size: 13px;
+}
+
+.msg-bubble .btn,
+.msg-inbox .btn {
+  padding: 4px 10px;
+  font-size: 12.5px;
+}
+
+.msg-tail {
+  stroke: var(--ai);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 4;
+  opacity: 0.6;
+}
+
+/* A read conversation: one small mark. */
+.msg-mark {
+  position: absolute;
+  pointer-events: auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid color-mix(in srgb, var(--ai) 50%, transparent);
+  background: #fff;
+  color: var(--ai);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  opacity: 0.85;
+}
+
+.msg-mark:hover {
+  opacity: 1;
+}
+
+.msg-mark.asking {
+  background: var(--ai);
+  color: #fff;
+  opacity: 1;
+}
+
+/* Unread messages with no place on screen: top of the board, impossible to miss. */
+.msg-inbox {
+  position: absolute;
+  top: 64px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(420px, calc(100% - 32px));
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 3;
+}
+
+.msg-inbox-head {
+  align-self: center;
+  border: 1.5px solid var(--ai);
+  background: var(--ai);
+  color: #fff;
+  border-radius: 999px;
+  padding: 5px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
   box-shadow: var(--shadow);
 }
 
-.comment-badge.ai {
-  color: var(--ai);
-  border-color: color-mix(in srgb, var(--ai) 45%, transparent);
+.msg-inbox-item {
+  background: #fff;
+  border: 1.5px solid color-mix(in srgb, var(--ai) 45%, transparent);
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: var(--shadow);
+  font-size: 14px;
+  line-height: 1.4;
 }
 
-.comment-badge.asking {
-  color: #fff;
-  background: var(--warn);
-  border-color: var(--warn);
+.msg-inbox-item.asking {
+  border-color: var(--ai);
+  border-width: 2px;
+}
+
+.msg-inbox-item p {
+  margin: 0;
+  white-space: pre-wrap;
+  max-height: 140px;
+  overflow-y: auto;
 }
 
 /* Zoomed out: one readable title per idea. */

@@ -24,7 +24,7 @@ sulla lavagna con `comment`, non in chat.
 - Grafica mancante: usa modelli e texture vanilla come segnaposto e scrivilo nelle `assumptions`.
 - Prima di lavorare su un nodo `set_status(building)`, dopo `set_status(done, files)` con percorsi relativi
   alla radice del repo (es. `demo/minecraft-pack/frost_golem_BP/items/frost_sword.json`).
-- Sulla lavagna disegna, non scrivere: `extend` per aggiungere mob/item allo schema, `draw_sketch` per far vedere un oggetto, `annotate` per segnalare problemi. Schede e riepiloghi (statistiche, drop, ricette) vanno nel Documento con `write_doc`.
+- Sulla lavagna disegna, non scrivere: `extend` per aggiungere mob/item allo schema, `draw_svg` per far vedere un oggetto, `draw_table` per statistiche, drop e ricette, `annotate` per segnalare problemi. Quando cambiano, aggiorna i disegni con `replace`.
 - Feedback `view-edit`: l'utente ha modificato le props da una vista interattiva → riallinea i file.
 - Feedback `retype` o `reject`: l'umano ha corretto la tua lettura → adegua o ripulisci.
 

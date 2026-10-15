@@ -1,7 +1,7 @@
 import { AI_COLOR, type BBox, type SinapsiElementData, uid } from "@sinapsi/shared";
 import { generateKeyBetween } from "fractional-indexing";
 import { type El, elementBBox } from "./segment";
-import type { Pt, SvgStroke } from "./svgpath";
+import type { Paint, Pt, Scene, SceneItem } from "./svgpath";
 
 /**
  * Builds real Excalidraw elements for the agent. The agent describes *what* to
@@ -25,8 +25,8 @@ export type DrawItem = {
 export type AnnotationKind = "circle" | "underline" | "highlight" | "check" | "cross" | "callout";
 export type Direction = "down" | "right" | "up" | "left";
 
-/** The canvas is for drawings: anything longer belongs in the board's document. */
-export const MAX_WORDS = 12;
+/** Words per element: the board shows ideas, not paragraphs (long prose goes to the Document). */
+export const MAX_WORDS = 20;
 
 const STICKY_BG = "#ffe8cc";
 const HIGHLIGHT = "#ffec99";
@@ -41,7 +41,7 @@ const HEX = /^#[0-9a-f]{3,8}$/i;
 export function checkWords(text: string | undefined, max = MAX_WORDS) {
   if (text && words(text) > max) {
     throw new Error(
-      `Troppo testo per la lavagna (${words(text)} parole, max ${max} per elemento). Disegna l'idea (extend, draw_sketch, draw_diagram) e metti i dettagli nel Documento con write_doc.`,
+      `Troppo testo in un elemento (${words(text)} parole, max ${max}). Spezzalo: una tabella (draw_table), più elementi, un disegno (draw_svg); le spiegazioni lunghe vanno nel Documento (write_doc).`,
     );
   }
 }
@@ -153,6 +153,11 @@ export class Drawer {
       .filter((i): i is string => !!i && validIndex(i))
       .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
     this.index = this.sortedIndices[this.sortedIndices.length - 1] ?? null;
+  }
+
+  /** The id every element of this call shares: what the agent passes to replace or erase it later. */
+  get drawingId() {
+    return this.meta.drawingId;
   }
 
   private get color() {
@@ -454,7 +459,7 @@ export class Drawer {
    * height, tied to its node by a thin dotted line (or an arrow, for callouts).
    */
   note(anchor: BBox, text: string, pointer = false) {
-    checkWords(text, 20);
+    checkWords(text, 40);
     const t = wrap(text, 26);
     const m = measure(t, NOTE_FONT);
     const band = this.occupied.filter((o) => o.y < anchor.y + anchor.h + 40 && o.y + o.h > anchor.y - 40);
@@ -554,48 +559,182 @@ export class Drawer {
     if (text) this.note(anchor, text);
   }
 
-  // ------------------------------------------------------------- sketches
+  // ------------------------------------------------------------- scenes (SVG)
 
-  /** Strokes from SVG, scaled to `size`, drawn by hand next to the anchor. */
-  sketch(
-    strokes: SvgStroke[],
-    opts: {
-      viewBox?: { x: number; y: number; w: number; h: number };
-      anchor?: BBox;
-      at?: { x: number; y: number };
-      size?: number;
-      label?: string;
-      color?: string;
-    },
-  ) {
-    if (!strokes.length) throw new Error("Lo schizzo non contiene tratti: usa path, line, polyline, polygon, rect, circle o ellipse.");
-    if (strokes.length > 80) throw new Error("Schizzo troppo complesso (max 80 tratti): semplifica.");
-    checkWords(opts.label, 6);
-    const pts = strokes.flatMap((s) => s.points);
-    const minX = Math.min(...pts.map((p) => p[0]));
-    const minY = Math.min(...pts.map((p) => p[1]));
-    const vb = opts.viewBox ?? {
-      x: minX,
-      y: minY,
-      w: Math.max(...pts.map((p) => p[0])) - minX || 1,
-      h: Math.max(...pts.map((p) => p[1])) - minY || 1,
-    };
-    const size = opts.size ?? 140;
-    const k = size / Math.max(vb.w, vb.h);
+  /**
+   * Anything the agent can say in SVG, as editable hand-drawn elements: shapes
+   * stay shapes, closed paths can be filled, text stays text, markers become
+   * arrowheads. Scaled so the longest side is `size` (default: the SVG's own
+   * size, kept within 60..900), grouped so it moves as one, placed in free space.
+   */
+  scene(scene: Scene, opts: { anchor?: BBox; at?: { x: number; y: number }; size?: number; label?: string }) {
+    const { items } = scene;
+    if (!items.length) throw new Error("L'SVG non contiene niente da disegnare: usa rect, circle, ellipse, line, polyline, polygon, path, text.");
+    if (items.length > 400) throw new Error(`SVG troppo complesso (${items.length} elementi, max 400): semplifica.`);
+    for (const it of items) if (it.kind === "text") checkWords(it.text, 25);
+    checkWords(opts.label);
+    const vb = scene.viewBox ?? sceneBounds(items);
+    const natural = Math.max(vb.w, vb.h) || 1;
+    const k = (opts.size ?? Math.min(900, Math.max(60, natural))) / natural;
     const w = vb.w * k;
     const h = vb.h * k;
-    const label = opts.label ? wrap(opts.label, 18) : "";
-    const lm = label ? measure(label, 16) : { w: 0, h: 0 };
+    const label = opts.label ? wrap(opts.label, 32) : "";
+    const lm = label ? measure(label, NOTE_FONT) : { w: 0, h: 0 };
     const box = this.place(Math.max(w, lm.w), h + (label ? lm.h + 10 : 0), opts.anchor, opts.at);
     const ox = box.x + (box.w - w) / 2;
-    for (const s of strokes) {
-      const color = s.color && HEX.test(s.color) ? s.color : (opts.color ?? this.color);
-      this.created.push(this.stroke(s.points.map(([x, y]) => [ox + (x - vb.x) * k, box.y + (y - vb.y) * k]), color, 1));
+    const T = ([x, y]: Pt): Pt => [ox + (x - vb.x) * k, box.y + (y - vb.y) * k];
+    const groupIds = [uid("g_")];
+    for (const it of items) {
+      const el = this.sceneItem(it, T, k);
+      if (el) this.created.push({ ...el, groupIds });
     }
     if (label) {
-      this.created.push(this.text(label, { x: box.x + (box.w - lm.w) / 2, y: box.y + h + 10, ...lm }, opts.color ?? this.color, null, 16));
+      this.created.push({ ...this.text(label, { x: box.x + (box.w - lm.w) / 2, y: box.y + h + 10, ...lm }, this.color, null, NOTE_FONT), groupIds });
     }
     this.claim(box);
+  }
+
+  private colorOf(c: string | undefined) {
+    if (!c || c === "none") return undefined;
+    return c === "currentColor" ? this.color : c;
+  }
+
+  /** SVG paint → Excalidraw style. Fill is off unless set; stroke="none" really means no outline. */
+  private paint(p: Paint, k: number, filled: boolean) {
+    const fill = filled ? this.colorOf(p.fill) : undefined;
+    let stroke = this.colorOf(p.stroke);
+    if (p.stroke === "none") stroke = "transparent";
+    if (!stroke) stroke = fill ?? this.color;
+    const ghost = !!this.meta.ghost;
+    return {
+      strokeColor: stroke,
+      backgroundColor: fill ?? "transparent",
+      fillStyle: p.fillStyle && FILL_STYLES.has(p.fillStyle) ? p.fillStyle : "solid",
+      strokeWidth: Math.round(Math.min(6, Math.max(1, (p.strokeWidth ?? 2) * k)) * 2) / 2,
+      strokeStyle: ghost ? "dashed" : (p.dash ?? "solid"),
+      opacity: Math.round(Math.max(10, Math.min(1, p.opacity ?? 1) * 100) * (ghost ? 0.45 : 1)),
+    };
+  }
+
+  private sceneItem(it: SceneItem, T: (p: Pt) => Pt, k: number): Record<string, unknown> | null {
+    switch (it.kind) {
+      case "rect": {
+        const [x, y] = T([it.x, it.y]);
+        return this.base("rectangle", { x, y, w: it.w * k, h: it.h * k }, "", {
+          ...this.paint(it.paint, k, true),
+          roundness: it.rounded ? { type: 3 } : null,
+        });
+      }
+      case "ellipse": {
+        const [x, y] = T([it.cx - it.rx, it.cy - it.ry]);
+        return this.base("ellipse", { x, y, w: it.rx * 2 * k, h: it.ry * 2 * k }, "", this.paint(it.paint, k, true));
+      }
+      case "line": {
+        const pts = it.points.map(T).filter((p, i, all) => i === 0 || Math.hypot(p[0] - all[i - 1][0], p[1] - all[i - 1][1]) > 0.5);
+        if (pts.length < 2) return null;
+        const arrow = it.arrowStart || it.arrowEnd;
+        let closed = Math.hypot(pts[0][0] - pts[pts.length - 1][0], pts[0][1] - pts[pts.length - 1][1]) < 1.5;
+        // SVG fills an open path as if it were closed.
+        if (!arrow && !closed && this.colorOf(it.paint.fill)) {
+          pts.push(pts[0]);
+          closed = true;
+        }
+        if (closed) pts[pts.length - 1] = [pts[0][0], pts[0][1]];
+        const xs = pts.map((p) => p[0]);
+        const ys = pts.map((p) => p[1]);
+        const [x0, y0] = pts[0];
+        return this.base(arrow ? "arrow" : "line", { x: x0, y: y0, w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) }, "", {
+          ...this.paint(it.paint, k, closed && !arrow),
+          points: pts.map(([x, y]) => [x - x0, y - y0]),
+          lastCommittedPoint: null,
+          startBinding: null,
+          endBinding: null,
+          startArrowhead: it.arrowStart ? "arrow" : null,
+          endArrowhead: it.arrowEnd ? "arrow" : null,
+          ...(arrow ? { elbowed: false } : {}),
+        });
+      }
+      case "text": {
+        const size = Math.max(10, Math.round((it.paint.fontSize ?? 16) * k));
+        const m = measure(it.text, size);
+        const [x, y] = T([it.x, it.y]);
+        const align = it.paint.anchor === "middle" ? "center" : it.paint.anchor === "end" ? "right" : "left";
+        const left = align === "center" ? x - m.w / 2 : align === "right" ? x - m.w : x;
+        // SVG puts y on the baseline of the first line.
+        const color = this.colorOf(it.paint.fill) ?? this.colorOf(it.paint.stroke) ?? this.color;
+        const el = this.text(it.text, { x: left, y: y - size * 0.95, ...m }, color, null, size);
+        return { ...el, textAlign: align, opacity: this.paint(it.paint, k, false).opacity };
+      }
+    }
+  }
+
+  // ------------------------------------------------------------- tables
+
+  /**
+   * A hand-drawn table: header row tinted, cells sized to their text, optional
+   * highlighted cells (e.g. the recommended option). Grouped, placed in free space.
+   */
+  table(
+    rows: string[][],
+    opts: { anchor?: BBox; at?: { x: number; y: number }; title?: string; header?: boolean; highlight?: { row: number; col: number; color?: string }[] },
+  ) {
+    if (!rows.length || rows.length > 20) throw new Error("La tabella vuole da 1 a 20 righe.");
+    const cols = Math.max(...rows.map((r) => r.length));
+    if (cols < 1 || cols > 8) throw new Error("La tabella vuole da 1 a 8 colonne.");
+    for (const r of rows) for (const c of r) checkWords(c, 12);
+    checkWords(opts.title);
+    const FS = 16;
+    const cells = rows.map((r) => Array.from({ length: cols }, (_, i) => wrap(String(r[i] ?? ""), 22)));
+    const colW = Array.from({ length: cols }, (_, i) => Math.max(56, ...cells.map((r) => measure(r[i] || " ", FS).w + 24)));
+    const rowH = cells.map((r) => Math.max(36, ...r.map((c) => measure(c || " ", FS).h + 16)));
+    const W = colW.reduce((a, b) => a + b, 0);
+    const H = rowH.reduce((a, b) => a + b, 0);
+    const title = opts.title ? wrap(opts.title, 40) : "";
+    const tm = title ? measure(title, 20) : { w: 0, h: 0 };
+    const box = this.place(Math.max(W, tm.w), H + (title ? tm.h + 10 : 0), opts.anchor, opts.at);
+    const x0 = box.x;
+    const y0 = box.y + (title ? tm.h + 10 : 0);
+    const colX = colW.map((_, i) => x0 + colW.slice(0, i).reduce((a, b) => a + b, 0));
+    const rowY = rowH.map((_, j) => y0 + rowH.slice(0, j).reduce((a, b) => a + b, 0));
+    const color = this.color;
+    const groupIds = [uid("g_")];
+    const push = (el: Record<string, unknown>) => this.created.push({ ...el, groupIds });
+    const fillRect = (b: BBox, bg: string, opacity = 100) =>
+      push(this.base("rectangle", b, "transparent", { backgroundColor: bg, fillStyle: "solid", roughness: 0, strokeWidth: 1, opacity, roundness: null }));
+    // Backgrounds first, so lines and text sit on top.
+    if ((opts.header ?? rows.length > 1) && rows.length > 1) fillRect({ x: x0, y: y0, w: W, h: rowH[0] }, "#f1f3f5");
+    for (const hl of opts.highlight ?? []) {
+      if (hl.row < 0 || hl.row >= rows.length || hl.col < 0 || hl.col >= cols) continue;
+      fillRect({ x: colX[hl.col], y: rowY[hl.row], w: colW[hl.col], h: rowH[hl.row] }, hl.color ?? "#d3f9d8", 85);
+    }
+    push(this.base("rectangle", { x: x0, y: y0, w: W, h: H }, color, { strokeWidth: 1.5, roundness: null }));
+    for (let j = 1; j < rows.length; j++) push(this.segment({ x: x0, y: rowY[j] }, { x: x0 + W, y: rowY[j] }, color, j === 1 && (opts.header ?? true) ? 1.5 : 1));
+    for (let i = 1; i < cols; i++) push(this.segment({ x: colX[i], y: y0 }, { x: colX[i], y: y0 + H }, color, 1));
+    for (let j = 0; j < rows.length; j++)
+      for (let i = 0; i < cols; i++) {
+        const t = cells[j][i];
+        if (!t) continue;
+        const m = measure(t, FS);
+        push(this.text(t, { x: colX[i] + 12, y: rowY[j] + (rowH[j] - m.h) / 2, ...m }, color, null, FS));
+      }
+    if (title) push(this.text(title, { x: x0, y: box.y, ...tm }, color, null, 20));
+    this.claim(box);
+  }
+
+  /** A straight hand-drawn line (not an arrow). */
+  private segment(p: P, q: P, color: string, width = 1) {
+    return this.base("line", { x: p.x, y: p.y, w: Math.abs(q.x - p.x), h: Math.abs(q.y - p.y) }, color, {
+      points: [
+        [0, 0],
+        [q.x - p.x, q.y - p.y],
+      ],
+      lastCommittedPoint: null,
+      startBinding: null,
+      endBinding: null,
+      startArrowhead: null,
+      endArrowhead: null,
+      strokeWidth: width,
+    });
   }
 
   // ------------------------------------------------------------- images
@@ -816,6 +955,29 @@ export class Drawer {
       ),
     );
   }
+}
+
+const FILL_STYLES = new Set(["solid", "hachure", "cross-hatch", "zigzag"]);
+
+/** Bounds of a scene without a viewBox (text estimated). */
+function sceneBounds(items: SceneItem[]): BBox {
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (const it of items) {
+    if (it.kind === "rect") xs.push(it.x, it.x + it.w), ys.push(it.y, it.y + it.h);
+    else if (it.kind === "ellipse") xs.push(it.cx - it.rx, it.cx + it.rx), ys.push(it.cy - it.ry, it.cy + it.ry);
+    else if (it.kind === "line") for (const [x, y] of it.points) xs.push(x), ys.push(y);
+    else {
+      const size = it.paint.fontSize ?? 16;
+      const m = measure(it.text, size);
+      const left = it.paint.anchor === "middle" ? it.x - m.w / 2 : it.paint.anchor === "end" ? it.x - m.w : it.x;
+      xs.push(left, left + m.w);
+      ys.push(it.y - size, it.y - size + m.h);
+    }
+  }
+  const x = Math.min(...xs);
+  const y = Math.min(...ys);
+  return { x, y, w: Math.max(1, Math.max(...xs) - x), h: Math.max(1, Math.max(...ys) - y) };
 }
 
 function unionOf(a: BBox, b: BBox): BBox {

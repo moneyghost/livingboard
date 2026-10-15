@@ -18,7 +18,7 @@ async function toBase64(blob: Blob): Promise<string> {
 
 type Msg =
   | { id: string; type: "export"; elementIds: string[] | null; padding: number; maxSize: number }
-  | { id: string; type: "mermaid"; mermaid: string; anchor: BBox | null; nodeId: string | null };
+  | { id: string; type: "mermaid"; mermaid: string; anchor: BBox | null; nodeId: string | null; drawingId?: string; title?: string };
 
 async function exportImage(api: ExcalidrawImperativeAPI, msg: Extract<Msg, { type: "export" }>) {
   const wanted = msg.elementIds ? new Set(msg.elementIds) : null;
@@ -82,7 +82,16 @@ async function drawMermaid(api: ExcalidrawImperativeAPI, msg: Extract<Msg, { typ
         x: e.x + spot.x - minX,
         y: e.y + spot.y - minY,
         index: keys[i],
-        customData: { ...e.customData, sinapsi: { author: "ai", ...(msg.nodeId ? { nodeId: msg.nodeId } : {}) } },
+        customData: {
+          ...e.customData,
+          sinapsi: {
+            author: "ai",
+            kind: "diagram",
+            ...(msg.nodeId ? { nodeId: msg.nodeId } : {}),
+            ...(msg.drawingId ? { drawingId: msg.drawingId } : {}),
+            ...(msg.title ? { title: msg.title } : {}),
+          },
+        },
       }) as unknown as ExcalidrawElement,
   );
   // AI drawings are not part of anyone's undo history.

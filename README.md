@@ -1,9 +1,14 @@
 # ✳ Sinapsi
 
-Lavagna collaborativa open source che l'AI **capisce mentre disegni**.
-Disegni un'idea, l'AI la legge come significato (non come pixel), la trasforma in azioni e ti mostra sulla lavagna cosa ha capito e cosa sta facendo. Il collegamento con l'AI passa da **MCP**, quindi funziona con Claude Code o con qualsiasi client MCP.
+Lavagna collaborativa open source che fa da **prompt vivo** per un progetto costruito con l'AI.
 
-> Esempio: disegni un'app con riquadri, frecce e uno schizzo; mentre disegni, Claude riconosce funzioni e dati, risponde alle domande `@AI`, costruisce il progetto nella sua cartella e mette accanto a ogni idea lo stato di costruzione e uno screenshot del risultato.
+Con un prompt testuale dai un'istruzione, ricevi un risultato, e dopo un'ora di chat la visione d'insieme è persa nello scroll. In Sinapsi il prompt è la lavagna: la disegni, Claude la legge, costruisce, e riporta sulla lavagna quello che ha fatto (schermate, tabelle, schemi, screenshot). Persone e Claude la modificano entrambi, nel tempo, e **lavagna e progetto corrispondono sempre**: cambi una cella della tabella di Claude e Claude cambia il progetto; Claude cambia il progetto e aggiorna il disegno.
+
+Il collegamento con l'AI passa da **MCP**, quindi funziona con Claude Code o con qualsiasi client MCP.
+
+> Esempio: disegni un'app con riquadri, frecce e uno schizzo. Claude riconosce funzioni e dati, risponde alle domande `@AI` con un messaggio sulla lavagna, disegna accanto la prima schermata e la tabella degli avvisi, costruisce il progetto nella sua cartella e tiene tutto aggiornato.
+
+**Quando conviene (e quando no).** La lavagna vince quando la posizione è il contenuto (schermate, flussi, mappe, architetture), quando il progetto dura settimane e va capito con un'occhiata, quando si lavora in più persone, quando si confronta o si dà priorità (tabelle, matrici), con penna e tablet. Per bug, refactoring, regole precise e numeri il testo resta più veloce: Sinapsi non lo sostituisce, gli dà una mappa.
 
 Sinapsi non sa niente di nessun dominio: niente plugin per giochi, app o documenti. Il dominio lo porta l'agente (e la cartella in cui lavora); la lavagna offre solo strumenti generici per leggere, disegnare e mostrare immagini.
 
@@ -55,24 +60,23 @@ La modalità tablet si attiva da sola su iPad (o dal pannello, o con `?tablet=1`
 
 Su desktop restano gli strumenti di Excalidraw, con due pulsanti chiari *Annulla* / *Ripeti* in basso.
 
-### Una lavagna in ordine
+### Una lavagna pulita
 
-- **Un posto per ogni cosa**: sulla lavagna solo disegni; nome e tipo di ogni idea in un'etichetta di una riga; dettagli, ipotesi e discussione nella scheda del nodo; riepiloghi ed elenchi nel **Documento** (scheda nel pannello, esportabile in Markdown).
-- **Niente sovrapposizioni**: le etichette evitano frecce, disegni e altre idee (se lo spazio è poco mostrano solo il nome, poi solo l'icona), i commenti aspettano in un badge 💬, le viste si aprono solo su richiesta (▣ sull'etichetta) nello spazio libero, oppure restano aperte per tutti se fissate 📌.
-- **Riquadri solo quando servono**: il contorno attorno a un'idea compare passandoci sopra, con la sua scheda aperta o mentre Claude ci lavora; nel pannello c'è l'interruttore per vederli sempre.
-- **Zoom semantico**: da lontano restano solo i titoli delle idee, da vicino compaiono etichette, relazioni e viste.
-- **Riordina**: dal pannello (o proposto da Claude) un riordino ad albero che segue le tue frecce, nella direzione in cui le hai disegnate. Si vede in anteprima fantasma e non si muove nulla finché non premi *Applica*; le frecce si stirano e i disegni di Claude legati a un nodo lo seguono.
+- **Solo disegni**: di base sopra la lavagna non c'è nessuna etichetta. Selezioni qualcosa e compare come Claude l'ha letto (tipo e nome, con la scheda per correggerlo); la **Lente AI** nel pannello mostra etichette, relazioni e stato su tutte le idee, per chi le vuole.
+- **I messaggi di Claude si vedono subito**: risposte e domande compaiono aperte accanto a ciò di cui parlano, finché non premi *Ok* o rispondi lì stesso; poi restano come un piccolo ✳ (o un **?** arancione se Claude aspetta una risposta). Quelli sull'intera lavagna o fuori schermo, o con lo zoom lontano, stanno in una casella in alto con *Vai lì*. Il "letto" è per dispositivo.
+- **Niente sovrapposizioni**: messaggi ed etichette evitano frecce, disegni e altre idee; le viste si aprono solo su richiesta, oppure restano aperte per tutti se fissate 📌.
+- **Riordina**: dal pannello (o proposto da Claude) un riordino ad albero che segue le tue frecce. Si vede in anteprima fantasma e non si muove nulla finché non premi *Applica*; i disegni di Claude legati a un nodo lo seguono.
 
-### Claude disegna
+### Claude disegna, e tiene aggiornato
 
-Claude è spinto a disegnare invece di scrivere: sulla lavagna al massimo 12 parole per elemento (il server rifiuta il resto e lo rimanda al Documento), e ha strumenti fatti per disegnare nello **stile della lavagna** (colore d'inchiostro, grandezza della scrittura, box o parole, frecce a mano o no):
+Claude esprime quello che decide e costruisce **disegnando direttamente sulla lavagna**, nello stile della lavagna (colore d'inchiostro, grandezza della scrittura):
 
-- `extend` continua la tua struttura nella direzione delle tue frecce, scegliendo tra ventaglio e "pettine" (per le liste lunghe) la disposizione in cui nessun figlio e nessuna freccia copre qualcosa;
-- `draw_sketch` disegna oggetti a mano libera partendo da un SVG;
-- `draw_diagram` trasforma un diagramma Mermaid in forme disegnate a mano (lo converte il browser);
-- `draw_chart` risponde con un piccolo grafico a barre;
-- `annotate` cerchia, sottolinea, evidenzia, spunta o richiama ciò che hai disegnato, senza toccarlo;
-- `note` scrive una nota breve a margine, legata al nodo da una linea puntinata.
+- `draw_svg` è lo strumento principale: Claude scrive SVG (che conosce benissimo) e diventa elementi Excalidraw disegnati a mano e modificabili: rettangoli, ellissi, linee e tracciati (anche archi), riempimenti, testo, frecce, gruppi con trasformazioni. Schermate, oggetti, mappe, timeline, spiegazioni illustrate.
+- `draw_table` disegna una tabella: confronti, elenchi con attributi, piani, stati (✓ ⏳), con celle evidenziate.
+- `extend` continua la tua struttura ad albero nella direzione delle tue frecce, senza incroci;
+- `draw_diagram` (Mermaid), `draw_chart` (barre), `annotate` (cerchia, sottolinea, spunta), `note` (nota a margine), `add_image` (screenshot).
+
+Ogni disegno ha un `drawingId`. Quando il progetto cambia Claude lo **ridisegna sul posto** (`replace`) o lo **cancella** (`erase`) invece di aggiungerne copie, così la lavagna mostra lo stato attuale e non la storia. Se una persona modifica o cancella un disegno di Claude (riscrive una cella, toglie una riga), Claude lo riceve come `drawingEdits` con i testi cambiati e adegua il progetto. Al massimo 20 parole per elemento; il **Documento** (scheda nel pannello) resta per i testi lunghi.
 
 ### Immagini
 
@@ -100,14 +104,16 @@ Claude è spinto a disegnare invece di scrivere: sulla lavagna al massimo 12 par
 | `interpret` | scrive tipi, etichette, props, ipotesi, relazioni, tipi dell'ontologia |
 | `set_status` | badge di costruzione su un nodo (building, done con file, error, question) |
 | `comment` | commento ancorato a un nodo: risposte `@AI`, domande, note |
-| `draw` | forme, testi e frecce di base (max 12 parole); l'AI dice *cosa* e *vicino a cosa*, il server sceglie *dove* |
+| `draw` | forme, testi e frecce di base (max 20 parole); l'AI dice *cosa* e *vicino a cosa*, il server sceglie *dove* |
 | `attach_view` | vista interattiva HTML attaccata a un nodo |
 | `list_views` | viste salvate nel registro (filtrabili per nodo compatibile) |
 | `apply_view` | applica una vista salvata a un nodo |
 | `save_view` | salva una vista nel registro |
-| `write_doc` | scrive o sostituisce una sezione del Documento |
+| `write_doc` | scrive o sostituisce una sezione del Documento (solo testi lunghi) |
 | `extend` | aggiunge idee figlie continuando la struttura disegnata |
-| `draw_sketch` | schizzo a mano libera da SVG |
+| `draw_svg` | qualsiasi disegno da SVG: forme, riempimenti, testo, frecce, gruppi |
+| `draw_table` | tabella disegnata a mano (fino a 20×8), celle evidenziate |
+| `erase` | cancella disegni di Claude superati (per `drawingId`) |
 | `draw_diagram` | diagramma da Mermaid |
 | `draw_chart` | grafico a barre (1-8 valori) |
 | `annotate` | cerchio, sottolineatura, evidenziatore, ✓/✗, richiamo |

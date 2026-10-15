@@ -34,6 +34,14 @@ import { type El, elementBBox, segment, unionBBox } from "./segment";
 import { YRoom } from "./yserver";
 
 const SERVER = "server";
+
+/** What an agent drawing says (texts, parts, images), ignoring where it is. */
+function drawingSnapshot(els: El[]) {
+  const live = els.filter((e) => !e.isDeleted);
+  const texts = live.map((e) => e.originalText ?? e.text ?? "").filter(Boolean);
+  const sig = JSON.stringify(live.map((e) => [e.type, e.originalText ?? e.text ?? "", (e as El & { fileId?: string }).fileId ?? ""]).sort());
+  return { sig, texts };
+}
 const AGENT_IDLE_MS = 120_000;
 /** Bump when the candidate hash changes meaning (v2: content, not element versions). */
 const HASH_VERSION = 2;
@@ -50,8 +58,20 @@ export interface ChangeReport {
   links: unknown[];
   removed: unknown[];
   feedback: unknown[];
+  /** Agent drawings people changed (text edited, parts deleted, erased): the board moved, the project should follow. */
+  drawingEdits: unknown[];
   idle: boolean;
   hint: string;
+}
+
+/** One agent drawing, as the agent sees it in the overview. */
+export interface DrawingInfo {
+  drawingId: string;
+  kind?: string;
+  title?: string;
+  nodeId?: string;
+  bbox: { x: number; y: number; w: number; h: number };
+  texts: string[];
 }
 
 export class Board {
@@ -88,6 +108,10 @@ export class Board {
   private labelTimer: NodeJS.Timeout | null = null;
   private cursor = { x: 0, y: 0 };
   private listeningCount = 0;
+  /** Agent drawing id → the content the agent last knew (texts, parts, images). */
+  private drawingSigs = new Map<string, { sig: string; texts: string[] }>();
+  /** Agent drawings a person touched, and when: reported once they settle, if their content changed. */
+  private touchedDrawings = new Map<string, number>();
 
   constructor(readonly name: string) {
     this.room = new YRoom(this.doc, this.awareness);
@@ -105,7 +129,20 @@ export class Board {
     for (const c of this.candidates.values()) if (c.state === "read") this.reported.set(c.id, c.hash);
     this.feedbackCursor = this.feedback.length;
 
-    this.elements.observe(() => this.scheduleRecompute());
+    for (const [id, els] of this.drawingGroups()) this.drawingSigs.set(id, drawingSnapshot(els));
+    this.elements.observe((event, tr) => {
+      this.scheduleRecompute();
+      const touched = new Set<string>();
+      for (const k of event.keysChanged) {
+        const id = sinapsiData(this.elements.get(k) ?? {})?.drawingId;
+        if (id) touched.add(id);
+      }
+      if (!touched.size) return;
+      if (tr.origin === SERVER) {
+        const groups = this.drawingGroups(true);
+        for (const id of touched) this.drawingSigs.set(id, drawingSnapshot(groups.get(id) ?? []));
+      } else for (const id of touched) this.touchedDrawings.set(id, Date.now());
+    });
     this.settingsMap.observe((_e, tr) => {
       if (tr.origin === SERVER) return;
       this.settingsDirty = true;
@@ -284,6 +321,7 @@ export class Board {
 
   private tick() {
     this.updateAttention();
+    if ([...this.touchedDrawings.values()].some((t) => Date.now() - t > STABILITY_MS[this.settings().effort])) this.wake();
     const st = this.agent.get("state") as AgentState | undefined;
     if (st && this.listeningCount === 0 && st.lastSeen && Date.now() - st.lastSeen > AGENT_IDLE_MS && this.awareness.getLocalState()) {
       this.awareness.setLocalState(null);
@@ -375,7 +413,7 @@ export class Board {
       implicit: "Modalità IMPLICITA: le tue interpretazioni valgono subito. Mostra le ipotesi (assumptions) così l'utente può correggerti.",
     }[s.mode];
     const drawing =
-      "Disegno: esprimi le idee disegnando, nello stile della lavagna (campo style). extend continua la struttura, draw_sketch disegna oggetti, draw_diagram flussi, draw_chart numeri, annotate segna il disegno umano, note scrive brevi note a margine. Max 12 parole per elemento sulla lavagna; riepiloghi, elenchi e dettagli solo nel Documento (write_doc). Niente sticky con elenchi.";
+      "Lavagna = progetto: tienila sempre allineata al progetto, in entrambe le direzioni. Quello che costruisci o decidi lo disegni (draw_svg per schermate, oggetti, schemi; draw_table per confronti, elenchi con attributi, stati; draw_chart per numeri; extend per alberi; draw_diagram per flussi); quando cambia lo aggiorni con replace: drawingId, non aggiungi copie; quando è superato lo cancelli con erase. Le modifiche che le persone fanno ai tuoi disegni (drawingEdits) sono istruzioni sul progetto. Al massimo 20 parole per elemento; il Documento (write_doc) solo per testi lunghi.";
     return [mode, effort, permission, drawing].join("\n");
   }
 
@@ -469,7 +507,67 @@ export class Board {
       views: [...this.views.values()].map((v) => ({ id: v.id, nodeId: v.nodeId, title: v.title })),
       style: this.style(),
       document: [...this.docSections.values()].sort((a, b) => a.order - b.order).map((d) => ({ title: d.title, nodeIds: d.nodeIds })),
+      drawings: this.drawings(),
     };
+  }
+
+  // ---------------------------------------------------------------- agent drawings
+
+  /** Agent drawings by id (live elements only, unless `withDeleted`). */
+  private drawingGroups(withDeleted = false) {
+    const out = new Map<string, El[]>();
+    for (const e of this.elements.values()) {
+      const id = sinapsiData(e)?.drawingId;
+      if (!id || (!withDeleted && e.isDeleted)) continue;
+      const list = out.get(id) ?? [];
+      list.push(e);
+      out.set(id, list);
+    }
+    return out;
+  }
+
+  private describeDrawing(id: string, els: El[]): DrawingInfo {
+    const meta = sinapsiData(els[0]) ?? { author: "ai" as const };
+    const live = els.filter((e) => !e.isDeleted);
+    const b = live.length ? unionBBox(live.map(elementBBox)) : { x: 0, y: 0, w: 0, h: 0 };
+    return {
+      drawingId: id,
+      kind: meta.kind,
+      title: meta.title,
+      nodeId: meta.nodeId,
+      bbox: { x: Math.round(b.x), y: Math.round(b.y), w: Math.round(b.w), h: Math.round(b.h) },
+      texts: live
+        .map((e) => e.originalText ?? e.text ?? "")
+        .filter(Boolean)
+        .slice(0, 40),
+    };
+  }
+
+  /** Every drawing the agent made that is still on the board: what it can update or erase. */
+  drawings(): DrawingInfo[] {
+    return [...this.drawingGroups()].map(([id, els]) => this.describeDrawing(id, els));
+  }
+
+  /** Live elements of one agent drawing; throws if there is none. */
+  drawingElements(id: string): El[] {
+    const els = this.drawingGroups().get(id);
+    if (!els?.length) throw new Error(`${id}: disegno sconosciuto o già cancellato (vedi drawings in board_overview).`);
+    return els;
+  }
+
+  /** Remove agent drawings (soft delete, like Excalidraw: undo still works for people). */
+  eraseDrawings(ids: string[]) {
+    const groups = this.drawingGroups();
+    let count = 0;
+    this.doc.transact(() => {
+      for (const id of ids) {
+        for (const e of groups.get(id) ?? []) {
+          this.elements.set(e.id, { ...e, isDeleted: true, version: e.version + 1, versionNonce: Math.floor(Math.random() * 2 ** 31), updated: Date.now() } as El);
+          count++;
+        }
+      }
+    }, SERVER);
+    return count;
   }
 
   /** How people draw here: the agent mimics it so its drawings feel native. */
@@ -604,6 +702,7 @@ export class Board {
         links: [],
         removed: [],
         feedback: [],
+        drawingEdits: [],
         idle: true,
         hint: "Nessuna novità. Richiama wait_for_changes per continuare ad ascoltare.",
       };
@@ -613,10 +712,39 @@ export class Board {
     }
   }
 
+  /** Agent drawings people changed and then left alone: only real content changes (moving one is not news). */
+  private settledDrawingEdits() {
+    const settled = [...this.touchedDrawings].filter(([, t]) => Date.now() - t > STABILITY_MS[this.settings().effort]).map(([id]) => id);
+    if (!settled.length) return [];
+    const groups = this.drawingGroups(true);
+    const edits: unknown[] = [];
+    for (const id of settled) {
+      this.touchedDrawings.delete(id);
+      const els = groups.get(id) ?? [];
+      const now = drawingSnapshot(els);
+      const before = this.drawingSigs.get(id);
+      if (now.sig === before?.sig) continue;
+      this.drawingSigs.set(id, now);
+      const info = this.describeDrawing(id, els);
+      const erased = !els.some((e) => !e.isDeleted);
+      // What text appeared and disappeared (a cell rewritten shows up as one of each).
+      const left = [...(before?.texts ?? [])];
+      const added: string[] = [];
+      for (const t of now.texts) {
+        const i = left.indexOf(t);
+        if (i >= 0) left.splice(i, 1);
+        else added.push(t);
+      }
+      edits.push({ ...info, change: erased ? "erased" : "edited", added, removed: left });
+    }
+    return edits;
+  }
+
   private collect(): ChangeReport | null {
     const ready = [...this.candidates.values()].filter((c) => c.state === "ready");
     const fb = this.feedback.slice(this.feedbackCursor);
-    if (!ready.length && !fb.length && !this.removed.size && !this.settingsDirty) return null;
+    const drawingEdits = this.settledDrawingEdits();
+    if (!ready.length && !fb.length && !this.removed.size && !this.settingsDirty && !drawingEdits.length) return null;
 
     const changes = ready.filter((c) => c.kind !== "link").map((c) => this.describe(c));
     const links = ready.filter((c) => c.kind === "link").map((c) => this.describeLink(c));
@@ -649,9 +777,13 @@ export class Board {
       links,
       removed,
       feedback,
+      drawingEdits,
       idle: false,
       hint: [
         needVision ? "Alcuni candidati sono schizzi: guardali con get_board_image(nodeIds) prima di interpretarli." : "",
+        drawingEdits.length
+          ? "drawingEdits: una persona ha modificato o cancellato i tuoi disegni (added/removed = testi cambiati). È una richiesta di modifica al progetto: adegua il progetto e il resto della lavagna a quello che vedi ora."
+          : "",
         "Interpreta con interpret(); poi agisci secondo la policy; poi richiama wait_for_changes.",
       ]
         .filter(Boolean)

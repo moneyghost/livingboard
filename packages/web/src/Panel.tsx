@@ -225,7 +225,7 @@ export function Panel({ model, board, me, lens, onLens, showBoxes, onShowBoxes, 
         </label>
         <label className="toggle">
           <input type="checkbox" checked={lens} onChange={(e) => onLens(e.target.checked)} />
-          <span>Lente AI: mostra come Claude legge la lavagna</span>
+          <span>Lente AI: etichetta, relazioni e stato su ogni idea (spenta: lavagna pulita, l'etichetta compare solo su ciò che selezioni)</span>
         </label>
         <label className="toggle">
           <input type="checkbox" checked={showBoxes} onChange={(e) => onShowBoxes(e.target.checked)} disabled={!lens} />
