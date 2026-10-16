@@ -60,7 +60,7 @@ export function rpcCall<T>(board: string, payload: Record<string, unknown>, time
   const open = (renderers.get(board) ?? []).filter((w) => w.readyState === w.OPEN);
   const ws = open[open.length - 1];
   if (!ws) {
-    return Promise.reject(new Error("Nessun browser ha la lavagna aperta: apri la lavagna nel browser e riprova."));
+    return Promise.reject(new Error("Nessun browser ha la lavagna aperta: aprila con open_board (o chiedi all'utente di aprirla) e riprova."));
   }
   const id = `r${++seq}`;
   return new Promise((resolve, reject) => {

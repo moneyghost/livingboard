@@ -16,6 +16,7 @@
     "start": "pnpm --filter @sinapsi/server run start",
     "start:lan": "pnpm --filter @sinapsi/server run start:lan",
     "typecheck": "pnpm -r run typecheck",
-    "smoke": "pnpm --filter @sinapsi/server run smoke"
+    "smoke": "pnpm --filter @sinapsi/server run smoke",
+    "sinapsi": "pnpm --filter @sinapsi/server exec tsx src/cli.ts"
   }
 }

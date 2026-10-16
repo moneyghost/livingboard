@@ -14,18 +14,31 @@ Sinapsi non sa niente di nessun dominio: niente plugin per giochi, app o documen
 
 ## Avvio rapido
 
+Una volta sola, dalla cartella di Sinapsi:
+
 ```bash
 pnpm install
-pnpm dev
+pnpm sinapsi install
 ```
 
-Apri http://localhost:5180 (da altri dispositivi della rete: `pnpm dev:lan`, poi `http://<ip-del-pc>:5180`) e collega Claude Code alla lavagna:
+Poi in **qualsiasi progetto**, in una nuova sessione di Claude Code:
 
-```bash
-claude mcp add --transport http sinapsi http://localhost:3333/mcp
+```
+/whiteboard          la lavagna "main" del progetto
+/whiteboard ui       un'altra lavagna dello stesso progetto
 ```
 
-Poi dentro Claude Code esegui `/mcp__sinapsi__start`. Con la lavagna vuota c'è il pulsante **Carica l'esempio: app meteo**.
+Claude apre la lavagna nel browser e ci lavora. Non serve avviare niente a mano: il server parte da solo alla prima chiamata e resta acceso per tutti i progetti. Le lavagne di un progetto si salvano **nel progetto**, in `.sinapsi/boards/<nome>.ydoc`, così viaggiano e si versionano con il codice. Per il tablet: `pnpm sinapsi install --lan` (il server diventa visibile in rete; `open_board` restituisce anche gli indirizzi per l'iPad).
+
+Cosa installa `pnpm sinapsi install` (scope utente, `pnpm sinapsi uninstall` lo toglie):
+
+- il server MCP `sinapsi` (un ponte stdio che Claude Code avvia nella cartella del progetto: la cartella decide il progetto). Costa poco nei progetti dove non usi la lavagna: due righe di istruzioni e i nomi dei tool (circa 300 token per sessione con il caricamento dei tool su richiesta); le regole complete arrivano solo con `open_board`;
+- la skill `/whiteboard` in `~/.claude/skills/whiteboard/`;
+- un hook `UserPromptSubmit` in `~/.claude/settings.json`: a ogni messaggio, se sulla lavagna del progetto è cambiato qualcosa dall'ultimo messaggio, Claude lo sa (una riga di contesto, nessuna attesa se il server è spento).
+
+Con la lavagna vuota c'è il pulsante **Carica l'esempio: app meteo**.
+
+Per sviluppare Sinapsi: `pnpm dev` (lavagna su http://localhost:5180, in rete con `pnpm dev:lan`). Il ponte usa il server di sviluppo se è già acceso. Lavagne globali, fuori da un progetto: `claude mcp add --transport http sinapsi http://localhost:3333/mcp` e `/mcp__sinapsi__start`.
 Senza Claude puoi verificare il ciclo con un agente finto: `pnpm smoke`.
 
 ## Come funziona
@@ -98,6 +111,7 @@ Ogni disegno ha un `drawingId`. Quando il progetto cambia Claude lo **ridisegna 
 
 | Tool | Cosa fa |
 |---|---|
+| `open_board` | apre (o crea) una lavagna del progetto e la mostra nel browser; URL, indirizzi in rete, altre lavagne |
 | `board_overview` | stato, policy, ontologia, candidati, relazioni |
 | `wait_for_changes` | long-poll: candidati maturi, feedback, rimozioni, cambi di impostazioni |
 | `get_board_image` | PNG di tutta la lavagna o ritagliato su alcuni nodi (renderizzato da un browser aperto) |
@@ -155,13 +169,15 @@ demo/minecraft-pack  esempio d'uso: un add-on Minecraft costruito da Claude a pa
 Utili:
 
 - `pnpm --filter @sinapsi/server exec tsx scripts/mcp.ts call board_overview`: client MCP da terminale (`@file.json` per argomenti lunghi, `--out` per salvare le immagini).
-- `?board=nome` nell'URL per lavagne separate; i dati stanno in `data/<nome>.ydoc`.
+- Lavagne di un progetto: `?p=<id progetto>&board=nome` (l'id è nome della cartella + hash del percorso, registrato in `data/projects.json`); file in `<progetto>/.sinapsi/boards/`. Lavagne globali: `?board=nome`, file in `data/<nome>.ydoc`.
+- `pnpm --filter @sinapsi/server exec tsx scripts/bridge-smoke.ts <cartella> [lavagna]`: parla col ponte stdio come Claude Code.
+- Il server avviato dal ponte scrive il log in `data/server.log`.
 - `pnpm build && pnpm start`: un solo processo su http://localhost:3333 (lavagna + MCP).
 - `SINAPSI_PORT`, `SINAPSI_HOST`, `SINAPSI_DATA` per porta, interfaccia e cartella dati.
 
 ## Sicurezza
 
-Il server ascolta solo su `127.0.0.1` e rifiuta richieste dal browser con origini estranee. Non c'è autenticazione: se lo esponi in rete (`SINAPSI_HOST=0.0.0.0`) chiunque possa raggiungerlo può modificare la lavagna e parlare con l'agente. `add_image` legge file per percorso solo se l'agente è sullo stesso computer del server (chi arriva dalla rete può passare solo url o base64), e accetta solo file che sono davvero immagini. Il contenuto della lavagna arriva all'agente come dato, ma i permessi (sola lettura / chiedi) restano la difesa principale quando collabori con persone di cui non ti fidi.
+Il server ascolta solo su `127.0.0.1` e rifiuta richieste dal browser con origini estranee. Non c'è autenticazione: se lo esponi in rete (`SINAPSI_HOST=0.0.0.0`) chiunque possa raggiungerlo può modificare la lavagna e parlare con l'agente. Solo un agente sullo stesso computer può dire a quale cartella di progetto appartiene (`x-sinapsi-project`), perché il server scrive lì le lavagne; il browser apre la lavagna di un progetto solo se quel progetto è già stato registrato da un agente locale. `add_image` legge file per percorso solo se l'agente è sullo stesso computer del server (chi arriva dalla rete può passare solo url o base64), e accetta solo file che sono davvero immagini. Il contenuto della lavagna arriva all'agente come dato, ma i permessi (sola lettura / chiedi) restano la difesa principale quando collabori con persone di cui non ti fidi.
 
 ## Limiti noti
 

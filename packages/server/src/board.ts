@@ -1,5 +1,5 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   AI_COLOR,
   type Activity,
@@ -30,6 +30,7 @@ import {
 import { Awareness } from "y-protocols/awareness";
 import * as Y from "yjs";
 import { DATA_DIR } from "./config";
+import { boardsDir, parseBoardKey, type Project } from "./projects";
 import { type El, elementBBox, segment, unionBBox } from "./segment";
 import { YRoom } from "./yserver";
 
@@ -113,7 +114,15 @@ export class Board {
   /** Agent drawings a person touched, and when: reported once they settle, if their content changed. */
   private touchedDrawings = new Map<string, number>();
 
+  /** The board's name as people and the agent know it (without the project). */
+  readonly label: string;
+  readonly project: Project | undefined;
+
+  /** `name` is the board key: `main`, or `<project id>:<board>` for a project's board. */
   constructor(readonly name: string) {
+    const k = parseBoardKey(name);
+    this.label = k.name;
+    this.project = k.project;
     this.room = new YRoom(this.doc, this.awareness);
     this.load();
 
@@ -159,7 +168,8 @@ export class Board {
   // ---------------------------------------------------------------- persistence
 
   private get file() {
-    return join(DATA_DIR, `${this.name.replace(/[^\w-]/g, "_")}.ydoc`);
+    if (this.project) return join(boardsDir(this.project), `${this.label}.ydoc`);
+    return join(DATA_DIR, `${this.label}.ydoc`);
   }
 
   private load() {
@@ -175,7 +185,7 @@ export class Board {
     if (this.saveTimer) return;
     this.saveTimer = setTimeout(() => {
       this.saveTimer = null;
-      mkdirSync(DATA_DIR, { recursive: true });
+      mkdirSync(dirname(this.file), { recursive: true });
       writeFileSync(this.file, Y.encodeStateAsUpdate(this.doc));
     }, 1000);
   }
@@ -489,7 +499,7 @@ export class Board {
     const s = this.settings();
     const cands = [...this.candidates.values()];
     return {
-      board: this.name,
+      board: this.label,
       settings: s,
       policy: this.policy(s),
       ontology: [...this.ontology.values()],
@@ -694,7 +704,7 @@ export class Board {
         });
       }
       return {
-        board: this.name,
+        board: this.label,
         settings: this.settings(),
         policy: this.policy(),
         style: this.style(),
@@ -740,6 +750,25 @@ export class Board {
     return edits;
   }
 
+  /**
+   * What wait_for_changes would report now, counted without consuming it: a
+   * nudge for the agent between its turns (the Claude Code prompt hook).
+   */
+  pending() {
+    const ready = [...this.candidates.values()].filter((c) => c.state === "ready");
+    const groups = this.touchedDrawings.size ? this.drawingGroups(true) : new Map<string, El[]>();
+    const edited = [...this.touchedDrawings.keys()].filter((id) => drawingSnapshot(groups.get(id) ?? []).sig !== this.drawingSigs.get(id)?.sig);
+    return {
+      ideas: ready.filter((c) => c.kind !== "link").length,
+      links: ready.filter((c) => c.kind === "link").length,
+      feedback: this.feedback.length - this.feedbackCursor,
+      removed: this.removed.size,
+      drawingEdits: edited.length,
+      /** Changes since a given moment show up as a different signature. */
+      sig: [...ready.map((c) => c.id + c.hash), this.feedback.length, ...this.removed.keys(), ...edited].join("|"),
+    };
+  }
+
   private collect(): ChangeReport | null {
     const ready = [...this.candidates.values()].filter((c) => c.state === "ready");
     const fb = this.feedback.slice(this.feedbackCursor);
@@ -769,7 +798,7 @@ export class Board {
 
     const needVision = (changes as { needsVision?: boolean }[]).some((c) => c.needsVision);
     return {
-      board: this.name,
+      board: this.label,
       settings: this.settings(),
       policy: this.policy(),
       style: this.style(),
@@ -1044,12 +1073,19 @@ export function notifyRegistryChanged() {
   for (const b of boards.values()) b.doc.transact(() => b.agent.set("registryAt", Date.now()), SERVER);
 }
 
-export function getBoard(name = "main"): Board {
-  const key = name.trim() || "main";
+/** By key (see `boardKey` in projects.ts). */
+export function getBoard(key = "main"): Board {
   let b = boards.get(key);
   if (!b) {
+    const k = parseBoardKey(key);
+    if (k.projectId && !k.project) throw new Error(`Progetto sconosciuto: ${k.projectId}`);
     b = new Board(key);
     boards.set(key, b);
   }
   return b;
+}
+
+/** Boards of a project currently open on the server. */
+export function openBoardsOf(projectId: string): Board[] {
+  return [...boards.values()].filter((b) => b.project?.id === projectId);
 }

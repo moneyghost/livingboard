@@ -1,18 +1,15 @@
 import { createReadStream, existsSync, statSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { networkInterfaces } from "node:os";
 import { extname, join, normalize } from "node:path";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { WebSocketServer } from "ws";
-import { getBoard, notifyRegistryChanged } from "./board";
+import { getBoard, notifyRegistryChanged, openBoardsOf } from "./board";
+import { DEV, HOST, lanAddresses, PORT, WEB_DIST } from "./config";
 import { createMcpServer } from "./mcp";
+import { getProject, parseBoardKey, type Project, registerProject } from "./projects";
 import { deleteView, listViews, saveView } from "./registry";
 import { registerRenderer } from "./render";
 
-const PORT = Number(process.env.SINAPSI_PORT ?? 3333);
-// `--lan` (or SINAPSI_HOST=0.0.0.0) exposes the board to other devices on the network.
-const HOST = process.env.SINAPSI_HOST ?? (process.argv.includes("--lan") ? "0.0.0.0" : "127.0.0.1");
-const WEB_DIST = join(import.meta.dirname, "..", "..", "web", "dist");
 
 const MIME: Record<string, string> = {
   ".html": "text/html; charset=utf-8",
@@ -39,6 +36,22 @@ function originAllowed(req: IncomingMessage): boolean {
   } catch {
     return false;
   }
+}
+
+function isLocal(req: IncomingMessage): boolean {
+  const ip = req.socket.remoteAddress ?? "";
+  return ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1";
+}
+
+/**
+ * The bridge (`sinapsi mcp`, started by Claude Code inside a project folder)
+ * says which project it works for. Only agents on this machine may: the folder
+ * is where the server writes that project's boards.
+ */
+function projectOf(req: IncomingMessage): Project | undefined {
+  const root = req.headers["x-sinapsi-project"];
+  if (typeof root !== "string" || !root || !isLocal(req)) return undefined;
+  return registerProject(decodeURIComponent(root));
 }
 
 async function readBody(req: IncomingMessage): Promise<unknown> {
@@ -87,8 +100,7 @@ async function handleMcp(req: IncomingMessage, res: ServerResponse) {
   // Stateless: a fresh server per request. Board state lives in the Board registry.
   // SSE responses keep long waits (wait_for_changes) alive with keep-alive frames.
   // Agents on this machine may hand over files by path; LAN clients may not.
-  const ip = req.socket.remoteAddress ?? "";
-  const server = createMcpServer({ local: ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1" });
+  const server = createMcpServer({ local: isLocal(req), project: projectOf(req) });
   const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined });
   const abort = new AbortController();
   res.on("close", () => {
@@ -117,6 +129,27 @@ async function handleMcp(req: IncomingMessage, res: ServerResponse) {
     // client went away
   }
   res.end();
+}
+
+/**
+ * For the Claude Code prompt hook: what changed on the project's open boards
+ * since this session last asked, without consuming it (wait_for_changes does).
+ */
+const digestSeen = new Map<string, string>();
+async function handleDigest(req: IncomingMessage, res: ServerResponse) {
+  if (req.method !== "POST" || !isLocal(req)) return json(res, 403, { error: "local only" });
+  const { root, session } = ((await readBody(req)) ?? {}) as { root?: string; session?: string };
+  if (!root) return json(res, 400, { error: "root required" });
+  const project = registerProject(root);
+  const boards = openBoardsOf(project.id)
+    .map((b) => ({ board: b.label, ...b.pending() }))
+    .filter((p) => p.ideas || p.links || p.feedback || p.removed || p.drawingEdits);
+  const sig = boards.map((p) => p.board + p.sig).join("#");
+  const seenKey = `${session ?? ""}@${project.id}`;
+  const fresh = !!boards.length && digestSeen.get(seenKey) !== sig;
+  digestSeen.set(seenKey, sig);
+  if (digestSeen.size > 200) digestSeen.delete(digestSeen.keys().next().value!);
+  json(res, 200, { project: project.id, boards: fresh ? boards : [] });
 }
 
 function serveStatic(req: IncomingMessage, res: ServerResponse, pathname: string) {
@@ -152,10 +185,8 @@ const http = createServer(async (req, res) => {
     if (url.pathname === "/mcp") return await handleMcp(req, res);
     const views = /^\/api\/views(?:\/([\w-]+))?\/?$/.exec(url.pathname);
     if (views) return await handleViews(req, res, views[1]);
-    if (url.pathname === "/health") {
-      res.writeHead(200, { "Content-Type": "application/json" }).end(JSON.stringify({ ok: true }));
-      return;
-    }
+    if (url.pathname === "/api/digest") return await handleDigest(req, res);
+    if (url.pathname === "/health") return json(res, 200, { ok: true, app: "sinapsi", dev: DEV });
     serveStatic(req, res, url.pathname);
   } catch (err) {
     console.error(err);
@@ -168,23 +199,23 @@ const wss = new WebSocketServer({ noServer: true });
 http.on("upgrade", (req, socket, head) => {
   const url = new URL(req.url ?? "/", "http://localhost");
   const [, channel, board] = url.pathname.split("/");
-  if (!originAllowed(req) || !board || (channel !== "yjs" && channel !== "rpc")) {
+  let key = "";
+  try {
+    key = decodeURIComponent(board ?? "");
+  } catch {
+    // malformed: refused below
+  }
+  // A project board opens only if a local agent registered the project.
+  const k = parseBoardKey(key);
+  if (!originAllowed(req) || !key || (k.projectId && !getProject(k.projectId)) || (channel !== "yjs" && channel !== "rpc")) {
     socket.destroy();
     return;
   }
   wss.handleUpgrade(req, socket, head, (ws) => {
-    const name = decodeURIComponent(board);
-    if (channel === "yjs") getBoard(name).room.connect(ws);
-    else registerRenderer(name, ws);
+    if (channel === "yjs") getBoard(key).room.connect(ws);
+    else registerRenderer(key, ws);
   });
 });
-
-function lanAddresses(): string[] {
-  return Object.values(networkInterfaces())
-    .flat()
-    .filter((i) => !!i && i.family === "IPv4" && !i.internal)
-    .map((i) => i!.address);
-}
 
 http.listen(PORT, HOST, () => {
   console.log(`\n  ✳ Sinapsi server  http://${HOST}:${PORT}`);
@@ -193,5 +224,5 @@ http.listen(PORT, HOST, () => {
     console.log("    ⚠ Nessuna autenticazione: chiunque in questa rete può modificare la lavagna.");
   }
   console.log(`    MCP endpoint     http://${HOST}:${PORT}/mcp`);
-  console.log(`    Claude Code      claude mcp add --transport http sinapsi http://localhost:${PORT}/mcp\n`);
+  console.log(`    Claude Code      pnpm sinapsi install, poi /whiteboard [nome] in qualsiasi progetto\n`);
 });

@@ -93,7 +93,7 @@ export class Collab {
         resolve(data);
       };
     });
-    this.provider = new WebsocketProvider(`${WS}://${SERVER_HOST}/yjs`, board, this.doc);
+    this.provider = new WebsocketProvider(`${WS}://${SERVER_HOST}/yjs`, encodeURIComponent(board), this.doc);
     this.elements = this.doc.getMap<El>(DOC.elements);
     this.files = this.doc.getMap<BoardFile>(DOC.files);
     this.provider.awareness.setLocalStateField("user", { name: me.name, color: me.color });

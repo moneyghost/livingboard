@@ -1,4 +1,4 @@
-import { AI_COLOR, type BBox, type SinapsiElementData, uid } from "@sinapsi/shared";
+import { AI_COLOR, type BBox, isAiAuthored, type SinapsiElementData, uid } from "@sinapsi/shared";
 import { generateKeyBetween } from "fractional-indexing";
 import { type El, elementBBox } from "./segment";
 import type { Paint, Pt, Scene, SceneItem } from "./svgpath";
@@ -124,6 +124,17 @@ function within(r: BBox, boxes: BBox[]) {
     return w > 0 && h > 0 && w * h >= 0.6 * Math.max(1, r.w * r.h);
   });
 }
+
+/** Empty space between two rectangles (0 if they touch or overlap). */
+function rectGap(a: BBox, b: BBox) {
+  const dx = Math.max(0, a.x - (b.x + b.w), b.x - (a.x + a.w));
+  const dy = Math.max(0, a.y - (b.y + b.h), b.y - (a.y + a.h));
+  return Math.hypot(dx, dy);
+}
+
+/** Boards read best roughly as wide as a screen: how far a box is from that shape. */
+const SCREEN_RATIO = 1.6;
+const imbalance = (b: BBox) => Math.abs(Math.log(Math.max(1, b.w) / Math.max(1, b.h) / SCREEN_RATIO));
 
 const rectsOverlap = (a: BBox, b: BBox, pad: number) =>
   a.x < b.x + b.w + pad && a.x + a.w + pad > b.x && a.y < b.y + b.h + pad && a.y + a.h + pad > b.y;
@@ -272,29 +283,77 @@ export class Drawer {
     return this.lines.some((pts) => pts.some((pt, i) => i > 0 && segmentHitsRect(pts[i - 1], pt, grown, 0)));
   }
 
-  /** First free slot around the anchor: right, below, left, above, sliding down when busy. */
-  place(w: number, h: number, anchor?: BBox, at?: { x: number; y: number }): BBox {
+  /**
+   * Where people are working: the elements they touched last (or, when those
+   * are spread out, the very last one). Drawings without an anchor go there.
+   */
+  private focus(): BBox | undefined {
+    const human = this.elements
+      .filter((e) => !e.isDeleted && !isAiAuthored(e))
+      .sort((a, b) => (b.updated ?? 0) - (a.updated ?? 0))
+      .slice(0, 8)
+      .map(elementBBox);
+    if (!human.length) return this.occupied.length ? this.occupied.reduce(unionOf) : undefined;
+    const recent = human.reduce(unionOf);
+    return recent.w + recent.h > 2400 ? human[0] : recent;
+  }
+
+  /**
+   * A free spot for a w×h box near the anchor (or, without one, next to what this
+   * call already drew, else where people are working). Candidates lie on a grid
+   * aligned to the anchor, all around it, and the cheapest free one wins:
+   * close to the anchor, keeping the board compact and screen-shaped (no endless
+   * rows or columns), lightly preferring right and below (reading order).
+   */
+  place(w: number, h: number, anchor?: BBox, at?: { x: number; y: number }, gap = GAP): BBox {
     if (at) return { x: at.x, y: at.y, w, h };
-    if (!anchor) {
-      if (this.occupied.length === 0) return { x: 0, y: 0, w, h };
-      const maxX = Math.max(...this.occupied.map((o) => o.x + o.w));
-      const minY = Math.min(...this.occupied.map((o) => o.y));
-      anchor = { x: maxX + GAP, y: minY, w: 0, h: 0 };
-    }
-    const tries: [number, number][] = [
-      [anchor.x + anchor.w + GAP, anchor.y],
-      [anchor.x, anchor.y + anchor.h + GAP],
-      [anchor.x - w - GAP, anchor.y],
-      [anchor.x, anchor.y - h - GAP],
-    ];
-    // Nearest first: every side right next to the anchor, then each side a step further down.
-    for (let k = 0; k < 8; k++) {
-      for (const [x0, y0] of tries) {
-        const b = { x: x0, y: y0 + k * (h + 30), w, h };
-        if (!this.overlaps(b)) return b;
+    const target = anchor ?? (this.refs.length ? this.refs.reduce(unionOf) : this.focus());
+    if (!target) return { x: 0, y: 0, w, h };
+    const content = this.occupied.length ? this.occupied.reduce(unionOf) : target;
+    const perimeter = content.w + content.h;
+    // The parts of one call (several boxes, say) stay together as a group.
+    const group = !anchor && this.refs.length ? target : undefined;
+    const shape = imbalance(content);
+    const step = Math.max(30, Math.min(120, Math.round(Math.min(w, h) / 2)));
+
+    for (const reach of [1200, 3000, 8000]) {
+      const r = Math.max(reach, 3 * Math.max(w, h));
+      const axis = (start: number, size: number, own: number) => {
+        // Edges aligned with the anchor (flush start, centred, flush end, just outside), then a grid around it.
+        const v = new Set([start, start + (size - own) / 2, start + size - own, start + size + gap, start - own - gap]);
+        for (let p = start - own - gap; p >= start - own - r; p -= step) v.add(p);
+        for (let p = start + size + gap; p <= start + size + r; p += step) v.add(p);
+        for (let p = start; p <= start + size - own; p += step) v.add(p);
+        return [...v];
+      };
+      const xs = axis(target.x, target.w, w);
+      const ys = axis(target.y, target.h, h);
+      const tc = center(target);
+      const scored: { b: BBox; cost: number }[] = [];
+      for (const x of xs) {
+        for (const y of ys) {
+          const b = { x, y, w, h };
+          const d = rectGap(b, target);
+          if (d < gap - 0.5) continue;
+          const u = unionOf(content, b);
+          const c = center(b);
+          let cost = d - gap;
+          cost += 0.8 * (u.w + u.h - perimeter);
+          cost += 300 * (imbalance(u) - shape);
+          if (group) {
+            const g = unionOf(group, b);
+            cost += 1.5 * (g.w + g.h - group.w - group.h) + 200 * Math.max(0, imbalance(g) - 1.2);
+          }
+          if (c.x < tc.x - target.w / 2) cost += 25;
+          if (c.y < tc.y - target.h / 2) cost += 40;
+          if (x === target.x || y === target.y) cost -= 15;
+          scored.push({ b, cost });
+        }
       }
+      scored.sort((p, q) => p.cost - q.cost);
+      for (const { b } of scored) if (!this.overlaps(b)) return b;
     }
-    return { x: anchor.x + anchor.w + GAP, y: anchor.y + 8 * (h + 30), w, h };
+    return { x: content.x, y: content.y + content.h + gap, w, h };
   }
 
   private claim(b: BBox) {
@@ -455,20 +514,16 @@ export class Drawer {
   // ------------------------------------------------------------- margin notes
 
   /**
-   * A short note in the margin: to the right of everything drawn at the same
-   * height, tied to its node by a thin dotted line (or an arrow, for callouts).
+   * A short note right next to its node (in the nearest free spot, any side),
+   * tied to it by a thin dotted line (or an arrow, for callouts).
    */
   note(anchor: BBox, text: string, pointer = false) {
     checkWords(text, 40);
     const t = wrap(text, 26);
     const m = measure(t, NOTE_FONT);
-    const band = this.occupied.filter((o) => o.y < anchor.y + anchor.h + 40 && o.y + o.h > anchor.y - 40);
-    const marginX = Math.max(anchor.x + anchor.w, ...band.map((o) => o.x + o.w)) + 70;
-    let b = { x: marginX, y: anchor.y, w: m.w, h: m.h };
-    for (let k = 0; k < 12 && this.overlaps(b, 12); k++) b = { ...b, y: b.y + m.h + 14 };
+    const b = this.place(m.w, m.h, anchor, undefined, 36);
     this.created.push(this.text(t, b, AI_COLOR, null, NOTE_FONT));
-    const from = { x: anchor.x + anchor.w + 6, y: anchor.y + Math.min(anchor.h / 2, 24) };
-    const to = { x: b.x - 10, y: b.y + Math.min(m.h / 2, 12) };
+    const [from, to] = connect(anchor, b);
     this.created.push(
       this.line(pointer ? to : from, pointer ? from : to, AI_COLOR, {
         strokeWidth: 1,

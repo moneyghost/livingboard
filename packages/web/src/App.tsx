@@ -17,11 +17,19 @@ import { redo, undo } from "./history";
 import { refreshViews } from "./registry";
 import { startRenderer } from "./rpc";
 
-const board = new URLSearchParams(location.search).get("board")?.trim() || "main";
+const params = new URLSearchParams(location.search);
+const board = params.get("board")?.trim() || "main";
+// A project's board (opened by /whiteboard in Claude Code): the server knows the project by its id.
+const project = params.get("p")?.trim() || null;
+/** What the server calls this board: `main`, or `<project>:<board>`. */
+const boardKey = project ? `${project}:${board}` : board;
+// The id is `<folder name>-<hash>`: the name alone is enough for people.
+const projectName = project?.replace(/-[0-9a-f]{6}$/, "") ?? null;
+document.title = projectName ? `${board} · ${projectName} · Sinapsi` : `${board} · Sinapsi`;
 const me = loadIdentity();
 
 export default function App() {
-  const collab = useMemo(() => new Collab(board, me), []);
+  const collab = useMemo(() => new Collab(boardKey, me), []);
   const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
   const model = useMemo(() => new BoardModel(collab, () => apiRef.current), [collab]);
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null);
@@ -93,7 +101,7 @@ export default function App() {
     collab.onCollaborators = (collaborators) => api.updateScene({ collaborators });
   }, [api, collab]);
 
-  useEffect(() => startRenderer(board, () => apiRef.current), []);
+  useEffect(() => startRenderer(boardKey, () => apiRef.current), []);
 
   // The server pings every board when the view registry changes.
   useEffect(() => {
@@ -167,7 +175,7 @@ export default function App() {
           }}
           isCollaborating
           langCode="it-IT"
-          name={`Sinapsi · ${board}`}
+          name={projectName ? `${projectName} · ${board}` : `Sinapsi · ${board}`}
           UIOptions={{ canvasActions: { loadScene: false, saveToActiveFile: false } }}
         >
           <WelcomeScreen>
@@ -187,7 +195,7 @@ export default function App() {
         </Excalidraw>
         <Overlay
           model={model}
-          board={board}
+          board={boardKey}
           viewport={viewport}
           lens={lens}
           selection={selection}
@@ -210,6 +218,7 @@ export default function App() {
       <Panel
         model={model}
         board={board}
+        project={projectName}
         me={me}
         lens={lens}
         showBoxes={showBoxes}

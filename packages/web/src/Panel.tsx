@@ -10,6 +10,8 @@ import type { Identity } from "./identity";
 interface Props {
   model: BoardModel;
   board: string;
+  /** Folder name of the project the board belongs to (null: a global board). */
+  project: string | null;
   me: Identity;
   lens: boolean;
   onLens: (v: boolean) => void;
@@ -89,7 +91,7 @@ const HINTS = {
   },
 } as const;
 
-export function Panel({ model, board, me, lens, onLens, showBoxes, onShowBoxes, onExample, onFocus, tablet, onTablet }: Props) {
+export function Panel({ model, board, project, me, lens, onLens, showBoxes, onShowBoxes, onExample, onFocus, tablet, onTablet }: Props) {
   const settingsMap = useYMap(model.settings);
   const agentMap = useYMap(model.agent);
   const ontology = useYMap(model.ontology);
@@ -138,6 +140,11 @@ export function Panel({ model, board, me, lens, onLens, showBoxes, onShowBoxes, 
         <div>
           <h1>✳ Sinapsi</h1>
           <span className="muted small">
+            {project && (
+              <>
+                <b>{project}</b> ·{" "}
+              </>
+            )}
             lavagna <b>{board}</b> · tu sei <b style={{ color: me.color }}>{me.name}</b>
           </span>
         </div>
@@ -160,10 +167,19 @@ export function Panel({ model, board, me, lens, onLens, showBoxes, onShowBoxes, 
         )}
         {status.cls === "off" && (
           <div className="connect">
-            <p className="small">Collega Claude Code alla lavagna:</p>
-            <Copy text={`claude mcp add --transport http sinapsi ${mcpUrl}`} />
-            <p className="small">poi, dentro Claude Code:</p>
-            <Copy text="/mcp__sinapsi__start" />
+            {project ? (
+              <>
+                <p className="small">In Claude Code, nella cartella del progetto:</p>
+                <Copy text={board === "main" ? "/whiteboard" : `/whiteboard ${board}`} />
+              </>
+            ) : (
+              <>
+                <p className="small">Collega Claude Code alla lavagna:</p>
+                <Copy text={`claude mcp add --transport http sinapsi ${mcpUrl}`} />
+                <p className="small">poi, dentro Claude Code:</p>
+                <Copy text="/mcp__sinapsi__start" />
+              </>
+            )}
           </div>
         )}
       </section>

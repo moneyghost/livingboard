@@ -22,6 +22,8 @@ export interface El {
   customData?: Record<string, unknown>;
   index?: string | null;
   strokeColor?: string;
+  /** Last edit time (ms), set by Excalidraw. */
+  updated?: number;
 }
 
 const SHAPES = new Set(["rectangle", "ellipse", "diamond", "embeddable", "iframe"]);

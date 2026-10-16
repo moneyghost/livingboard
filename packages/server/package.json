@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx watch --clear-screen=false src/index.ts",
-    "dev:lan": "tsx watch --clear-screen=false src/index.ts --lan",
+    "dev": "tsx watch --clear-screen=false src/index.ts --dev",
+    "dev:lan": "tsx watch --clear-screen=false src/index.ts --dev --lan",
     "start": "tsx src/index.ts",
     "start:lan": "tsx src/index.ts --lan",
     "smoke": "tsx scripts/agent-smoke.ts",
