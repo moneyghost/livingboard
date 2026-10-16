@@ -48,6 +48,7 @@ async function main() {
 
   for (const b of digest.boards ?? []) {
     const parts = [
+      b.approvals && plural(b.approvals, "risposta a un tuo permesso", "risposte ai tuoi permessi"),
       b.ideas && plural(b.ideas, "idea nuova o cambiata", "idee nuove o cambiate"),
       b.links && plural(b.links, "collegamento", "collegamenti"),
       b.drawingEdits && plural(b.drawingEdits, "tuo disegno modificato", "tuoi disegni modificati"),

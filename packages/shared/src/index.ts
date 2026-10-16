@@ -34,7 +34,29 @@ export const DOC = {
   proposal: "proposal",
   /** Image data for Excalidraw image elements, keyed by fileId (Excalidraw's BinaryFileData). */
   files: "files",
+  /** Permission requests the agent drew (a question with Sì/No boxes people tick). */
+  approvals: "approvals",
 } as const;
+
+/**
+ * A permission the agent asked for on the board: a drawn question with two
+ * boxes. Whatever a person marks inside a box (a pen tick, an x, a ✓) answers it.
+ */
+export interface Approval {
+  id: string;
+  question: string;
+  /** The agent drawing (question + boxes): erase it once done. */
+  drawingId: string;
+  /** Element ids of the two boxes: they are read where they are now, even if people moved the drawing. */
+  yesBox: string;
+  noBox: string;
+  /** What the request is about (elements or nodes), e.g. text the agent wants to delete. */
+  about?: string[];
+  nodeId?: string;
+  answer: "pending" | "yes" | "no";
+  at: number;
+  answeredAt?: number;
+}
 
 /** Same shape as Excalidraw's BinaryFileData, so browsers can hand it straight to `addFiles`. */
 export interface BoardFile {

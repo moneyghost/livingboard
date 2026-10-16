@@ -55,7 +55,7 @@ function validIndex(i: string) {
   }
 }
 
-function measure(text: string, fontSize = FONT_SIZE) {
+export function measure(text: string, fontSize = FONT_SIZE) {
   const lines = text.split("\n");
   const longest = Math.max(...lines.map((l) => l.length), 1);
   // Excalifont is wide: overestimate so containers never clip (the client re-measures anyway).
@@ -509,6 +509,43 @@ export class Drawer {
       this.created.push(t);
     }
     this.claim(b);
+  }
+
+  // ------------------------------------------------------------- permission requests
+
+  /**
+   * A question people answer by ticking a box: the question on top, then
+   * "☐ Sì   ☐ No" (empty boxes to mark with the pen), in a dashed card, grouped.
+   * Returns the ids of the two boxes.
+   */
+  permission(question: string, anchor?: BBox): { yesBox: string; noBox: string } {
+    checkWords(question, 30);
+    const color = this.color;
+    const q = wrap(question, 30);
+    const qm = measure(q);
+    const BOX = 40;
+    const lm = measure("No");
+    const optW = BOX + 12 + lm.w + 10;
+    const pad = 22;
+    const w = Math.max(qm.w, optW * 2 + 50) + pad * 2;
+    const h = pad + qm.h + 22 + BOX + pad;
+    const card = this.place(w, h, anchor);
+    const groupIds = [uid("g_")];
+    const push = (el: Record<string, unknown>) => this.created.push({ ...el, groupIds });
+    push(this.base("rectangle", card, AI_COLOR, { strokeStyle: "dashed", strokeWidth: 1, backgroundColor: "#fff9db" }));
+    push(this.text(q, { x: card.x + pad, y: card.y + pad, ...qm }, color, null));
+    const y = card.y + pad + qm.h + 22;
+    const boxes: string[] = [];
+    ["Sì", "No"].forEach((label, i) => {
+      const x = card.x + pad + i * (optW + 50);
+      const box = this.base("rectangle", { x, y, w: BOX, h: BOX }, color, { roundness: null, strokeWidth: 2 });
+      push(box);
+      boxes.push(box.id as string);
+      const m = measure(label);
+      push(this.text(label, { x: x + BOX + 12, y: y + (BOX - m.h) / 2, ...m }, color, null));
+    });
+    this.claim(card);
+    return { yesBox: boxes[0], noBox: boxes[1] };
   }
 
   // ------------------------------------------------------------- margin notes

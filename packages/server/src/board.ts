@@ -4,6 +4,7 @@ import {
   AI_COLOR,
   type Activity,
   type AgentState,
+  type Approval,
   type AIEdge,
   type AINode,
   type BoardFile,
@@ -31,6 +32,7 @@ import { Awareness } from "y-protocols/awareness";
 import * as Y from "yjs";
 import { DATA_DIR } from "./config";
 import { boardsDir, parseBoardKey, type Project } from "./projects";
+import { measure } from "./draw";
 import { type El, elementBBox, segment, unionBBox } from "./segment";
 import { YRoom } from "./yserver";
 
@@ -61,6 +63,8 @@ export interface ChangeReport {
   feedback: unknown[];
   /** Agent drawings people changed (text edited, parts deleted, erased): the board moved, the project should follow. */
   drawingEdits: unknown[];
+  /** Permission requests people answered (ticked Sì or No) since the agent last looked. */
+  approvals: unknown[];
   idle: boolean;
   hint: string;
 }
@@ -95,6 +99,7 @@ export class Board {
   readonly docSections = this.doc.getMap<DocSection>(DOC.doc);
   readonly proposal = this.doc.getMap<LayoutProposal>(DOC.proposal);
   readonly files = this.doc.getMap<BoardFile>(DOC.files);
+  readonly approvals = this.doc.getMap<Approval>(DOC.approvals);
 
   /** Candidate id → hash the agent has already seen. */
   private reported = new Map<string, string>();
@@ -113,6 +118,8 @@ export class Board {
   private drawingSigs = new Map<string, { sig: string; texts: string[] }>();
   /** Agent drawings a person touched, and when: reported once they settle, if their content changed. */
   private touchedDrawings = new Map<string, number>();
+  /** Permission request id → the answer the agent was last told. */
+  private reportedApprovals = new Map<string, Approval["answer"]>();
 
   /** The board's name as people and the agent know it (without the project). */
   readonly label: string;
@@ -139,6 +146,7 @@ export class Board {
     this.feedbackCursor = this.feedback.length;
 
     for (const [id, els] of this.drawingGroups()) this.drawingSigs.set(id, drawingSnapshot(els));
+    for (const a of this.approvals.values()) this.reportedApprovals.set(a.id, a.answer);
     this.elements.observe((event, tr) => {
       this.scheduleRecompute();
       const touched = new Set<string>();
@@ -225,7 +233,14 @@ export class Board {
     const prev = new Map(this.candidates.entries());
     const explicit = new Map<string, string>();
     for (const g of this.groups.values()) for (const id of g.elementIds) explicit.set(id, g.id);
-    const next = segment([...this.elements.values()], prev, now, explicit);
+    // A tick in a permission box is an answer, not an idea to read.
+    const marks = this.approvalMarkIds();
+    const next = segment(
+      [...this.elements.values()].filter((e) => !marks.has(e.id)),
+      prev,
+      now,
+      explicit,
+    );
     const nextIds = new Set(next.map((c) => c.id));
 
     // Boards saved with an older hash: a node read over exactly the same elements keeps its
@@ -331,6 +346,7 @@ export class Board {
 
   private tick() {
     this.updateAttention();
+    this.readApprovals();
     if ([...this.touchedDrawings.values()].some((t) => Date.now() - t > STABILITY_MS[this.settings().effort])) this.wake();
     const st = this.agent.get("state") as AgentState | undefined;
     if (st && this.listeningCount === 0 && st.lastSeen && Date.now() - st.lastSeen > AGENT_IDLE_MS && this.awareness.getLocalState()) {
@@ -415,8 +431,8 @@ export class Board {
     }[s.effort];
     const permission = {
       read: "Permessi SOLA LETTURA: non modificare file né sistemi esterni. Solo interpret, comment, draw, attach_view.",
-      ask: "Permessi CHIEDI: prima di costruire qualcosa chiedi con comment(kind: 'question') e aspetta una risposta positiva nel feedback.",
-      auto: "Permessi AUTO: esegui azioni reversibili (file sotto git) senza chiedere; chiedi prima di quelle irreversibili (pubblicare, cancellare, inviare).",
+      ask: "Permessi CHIEDI: prima di costruire qualcosa chiedi con ask_permission e aspetta il Sì in approvals.",
+      auto: "Permessi AUTO: esegui azioni reversibili (file sotto git) senza chiedere; prima di quelle irreversibili (pubblicare, cancellare, inviare) chiedi con ask_permission e aspetta il Sì.",
     }[s.permission];
     const mode = {
       hybrid: "Modalità IBRIDA: le tue interpretazioni sono proposte. Costruisci un nodo solo quando il feedback dice che l'utente l'ha confermato.",
@@ -518,7 +534,202 @@ export class Board {
       style: this.style(),
       document: [...this.docSections.values()].sort((a, b) => a.order - b.order).map((d) => ({ title: d.title, nodeIds: d.nodeIds })),
       drawings: this.drawings(),
+      approvals: [...this.approvals.values()]
+        .sort((a, b) => b.at - a.at)
+        .slice(0, 10)
+        .map(({ id, question, drawingId, answer, about }) => ({ id, question, drawingId, answer, about })),
     };
+  }
+
+  // ---------------------------------------------------------------- permission requests
+
+  addApproval(a: Approval) {
+    this.doc.transact(() => this.approvals.set(a.id, a), SERVER);
+    this.reportedApprovals.set(a.id, "pending");
+  }
+
+  /** People's marks in (or around) a box: small things whose centre lies on the box. */
+  private marksIn(boxId: string, live: El[]): El[] {
+    const box = this.elements.get(boxId);
+    if (!box || box.isDeleted) return [];
+    const b = elementBBox(box);
+    const g = { x: b.x - b.w * 0.4, y: b.y - b.h * 0.4, w: b.w * 1.8, h: b.h * 1.8 };
+    return live.filter((e) => {
+      if (e.id === boxId || isAiAuthored(e)) return false;
+      const m = elementBBox(e);
+      if (m.w > b.w * 4 || m.h > b.h * 4) return false;
+      const cx = m.x + m.w / 2;
+      const cy = m.y + m.h / 2;
+      return cx >= g.x && cx <= g.x + g.w && cy >= g.y && cy <= g.y + g.h;
+    });
+  }
+
+  private approvalMarkIds(): Set<string> {
+    const out = new Set<string>();
+    if (!this.approvals.size) return out;
+    const live = this.liveElements();
+    for (const a of this.approvals.values()) for (const box of [a.yesBox, a.noBox]) for (const e of this.marksIn(box, live)) out.add(e.id);
+    return out;
+  }
+
+  /** Turn settled ticks into answers (the latest mark wins); tint the chosen box. */
+  private readApprovals() {
+    if (!this.approvals.size) return;
+    const live = this.liveElements();
+    const now = Date.now();
+    const latest = (els: El[]) => Math.max(0, ...els.map((e) => e.updated ?? 0));
+    let changed = false;
+    for (const a of this.approvals.values()) {
+      if (this.elements.get(a.yesBox)?.isDeleted !== false) continue;
+      const yes = this.marksIn(a.yesBox, live);
+      const no = this.marksIn(a.noBox, live);
+      // Still drawing: wait until the pen has been up for a moment.
+      if ([...yes, ...no].some((e) => now - (e.updated ?? 0) < 700)) continue;
+      const ty = latest(yes);
+      const tn = latest(no);
+      const answer: Approval["answer"] = !ty && !tn ? "pending" : ty >= tn ? "yes" : "no";
+      if (answer === a.answer) continue;
+      changed = true;
+      this.doc.transact(() => {
+        this.approvals.set(a.id, { ...a, answer, answeredAt: answer === "pending" ? undefined : now });
+        const tint = (id: string, color: string) => {
+          const el = this.elements.get(id) as (El & { backgroundColor?: string }) | undefined;
+          if (el && el.backgroundColor !== color) {
+            this.elements.set(id, { ...el, backgroundColor: color, fillStyle: "solid", version: el.version + 1, versionNonce: Math.floor(Math.random() * 2 ** 31), updated: now } as El);
+          }
+        };
+        tint(a.yesBox, answer === "yes" ? "#b2f2bb" : "transparent");
+        tint(a.noBox, answer === "no" ? "#ffc9c9" : "transparent");
+      }, SERVER);
+      if (answer !== "pending") this.log(`${answer === "yes" ? "Permesso dato" : "Permesso negato"}: ${a.question.slice(0, 60)}`, "info", a.nodeId);
+    }
+    if (changed) this.wake();
+  }
+
+  /** Answers the agent has not heard yet (a change of mind counts again). */
+  private freshApprovals(consume: boolean) {
+    const out = [...this.approvals.values()].filter((a) => a.answer !== "pending" && this.reportedApprovals.get(a.id) !== a.answer);
+    if (consume) for (const a of out) this.reportedApprovals.set(a.id, a.answer);
+    return out.map(({ id, question, drawingId, answer, about, nodeId }) => ({ id, question, drawingId, answer, about, nodeId }));
+  }
+
+  // ---------------------------------------------------------------- deleting text
+
+  /**
+   * What `refs` point at, as text to delete: a text element; the text inside a
+   * shape; every text of a node or candidate (or its strokes, when it is
+   * handwritten). Plus every typed text containing `match` (not the agent's
+   * permission requests, which quote what they are about). `lenient` skips
+   * refs that are gone instead of failing.
+   */
+  textTargets(refs: string[] = [], match?: string, lenient = false): El[] {
+    const out = new Map<string, El>();
+    const live = (id: string) => {
+      const e = this.elements.get(id);
+      return e && !e.isDeleted ? e : undefined;
+    };
+    for (const ref of refs) {
+      const c = this.candidates.get(ref);
+      if (c) {
+        const els = c.elementIds.map(live).filter((e): e is El => !!e);
+        const texts = els.filter((e) => e.type === "text");
+        for (const e of texts.length ? texts : els.filter((e) => e.type === "freedraw")) out.set(e.id, e);
+        continue;
+      }
+      const e = live(ref);
+      if (!e && lenient) continue;
+      if (!e) throw new Error(`${ref}: elemento o nodo sconosciuto.`);
+      if (e.type === "text" || e.type === "freedraw") out.set(e.id, e);
+      else {
+        const bound = ((e as El & { boundElements?: { id: string; type: string }[] | null }).boundElements ?? []).filter((x) => x.type === "text");
+        if (!bound.length && lenient) continue;
+        if (!bound.length) throw new Error(`${ref}: non contiene testo.`);
+        for (const x of bound) {
+          const t = live(x.id);
+          if (t) out.set(t.id, t);
+        }
+      }
+    }
+    if (match?.trim()) {
+      const norm = (t: string) => t.toLowerCase().replace(/\s+/g, " ");
+      const needle = norm(match.trim());
+      for (const e of this.liveElements()) {
+        if (e.type !== "text" || sinapsiData(e)?.kind === "permission") continue;
+        if (norm(e.text ?? "").includes(needle)) out.set(e.id, e);
+      }
+    }
+    return [...out.values()];
+  }
+
+  /**
+   * Delete text, or only `part` of it. The agent's own text goes freely;
+   * people's text only with a "yes" to a permission request covering it.
+   */
+  deleteText(input: { ids?: string[]; match?: string; part?: string; approvalId?: string }) {
+    const targets = this.textTargets(input.ids, input.match);
+    if (!targets.length) throw new Error("Nessun testo trovato: controlla ids o match (board_overview elenca i candidati).");
+    if (targets.length > 40) throw new Error(`Troppi testi (${targets.length}): restringi ids o match.`);
+    const human = targets.filter((e) => !isAiAuthored(e));
+    if (human.length) {
+      const a = input.approvalId ? this.approvals.get(input.approvalId) : undefined;
+      const quote = human.map((e) => `"${(e.text ?? "tratto a mano").slice(0, 40)}"`).join(", ");
+      if (!a || a.answer !== "yes") {
+        throw new Error(
+          `Testo di una persona (${quote}): chiedi prima con ask_permission(about: [${human.map((e) => `"${e.id}"`).join(", ")}]) e passa il suo approvalId quando ha spuntato Sì.` +
+            (a ? ` La richiesta ${a.id} è ${a.answer === "no" ? "stata rifiutata" : "ancora senza risposta"}.` : ""),
+        );
+      }
+      if (a.about?.length) {
+        const allowed = new Set(this.textTargets(a.about, undefined, true).map((e) => e.id));
+        const outside = human.filter((e) => !allowed.has(e.id));
+        if (outside.length) throw new Error(`Il permesso ${a.id} non copre: ${outside.map((e) => `"${(e.text ?? e.id).slice(0, 40)}"`).join(", ")}.`);
+      }
+    }
+    if (input.part && targets.some((e) => e.type !== "text")) {
+      throw new Error("part funziona solo sul testo digitato: un testo scritto a mano si cancella intero.");
+    }
+    const now = Date.now();
+    const bump = (e: El, patch: Record<string, unknown>) =>
+      ({ ...e, ...patch, version: e.version + 1, versionNonce: Math.floor(Math.random() * 2 ** 31), updated: now }) as El;
+    const deleted: string[] = [];
+    const edited: { before: string; after: string }[] = [];
+    const escaped = input.part ? input.part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") : "";
+    this.doc.transact(() => {
+      const remove = (e: El) => {
+        this.elements.set(e.id, bump(e, { isDeleted: true }));
+        deleted.push(e.text ?? "(tratto a mano)");
+        const container = e.containerId ? this.elements.get(e.containerId) : undefined;
+        const refs = (container as (El & { boundElements?: { id: string }[] | null }) | undefined)?.boundElements;
+        if (container && refs) this.elements.set(container.id, bump(container, { boundElements: refs.filter((r) => r.id !== e.id) }));
+      };
+      for (const e of targets) {
+        if (!input.part) {
+          remove(e);
+          continue;
+        }
+        const before = e.text ?? "";
+        const re = new RegExp(escaped, "gi");
+        if (!re.test(before)) continue;
+        const after = before
+          .replace(re, "")
+          .split("\n")
+          .map((l) => l.replace(/[ \t]{2,}/g, " ").trim())
+          .filter(Boolean)
+          .join("\n");
+        if (!after) {
+          remove(e);
+          continue;
+        }
+        const fontSize = Number((e as El & { fontSize?: number }).fontSize ?? 20);
+        const m = measure(after, fontSize);
+        this.elements.set(e.id, bump(e, { text: after, originalText: after, ...(e.containerId ? {} : { width: m.w, height: m.h }) }));
+        edited.push({ before, after });
+      }
+    }, SERVER);
+    if (input.part && !edited.length && !deleted.length) throw new Error(`"${input.part}" non compare nei testi trovati.`);
+    this.touchAgent("cancella testo");
+    this.log(`Cancella testo: ${[...deleted, ...edited.map((x) => x.before)].map((t) => t.slice(0, 30)).join(", ")}`, "draw");
+    return { deleted, edited };
   }
 
   // ---------------------------------------------------------------- agent drawings
@@ -713,6 +924,7 @@ export class Board {
         removed: [],
         feedback: [],
         drawingEdits: [],
+        approvals: [],
         idle: true,
         hint: "Nessuna novità. Richiama wait_for_changes per continuare ad ascoltare.",
       };
@@ -764,8 +976,9 @@ export class Board {
       feedback: this.feedback.length - this.feedbackCursor,
       removed: this.removed.size,
       drawingEdits: edited.length,
+      approvals: this.freshApprovals(false).length,
       /** Changes since a given moment show up as a different signature. */
-      sig: [...ready.map((c) => c.id + c.hash), this.feedback.length, ...this.removed.keys(), ...edited].join("|"),
+      sig: [...ready.map((c) => c.id + c.hash), this.feedback.length, ...this.removed.keys(), ...edited, ...this.freshApprovals(false).map((a) => a.id + a.answer)].join("|"),
     };
   }
 
@@ -773,7 +986,8 @@ export class Board {
     const ready = [...this.candidates.values()].filter((c) => c.state === "ready");
     const fb = this.feedback.slice(this.feedbackCursor);
     const drawingEdits = this.settledDrawingEdits();
-    if (!ready.length && !fb.length && !this.removed.size && !this.settingsDirty && !drawingEdits.length) return null;
+    const approvals = this.freshApprovals(true);
+    if (!ready.length && !fb.length && !this.removed.size && !this.settingsDirty && !drawingEdits.length && !approvals.length) return null;
 
     const changes = ready.filter((c) => c.kind !== "link").map((c) => this.describe(c));
     const links = ready.filter((c) => c.kind === "link").map((c) => this.describeLink(c));
@@ -807,8 +1021,12 @@ export class Board {
       removed,
       feedback,
       drawingEdits,
+      approvals,
       idle: false,
       hint: [
+        approvals.length
+          ? "approvals: una persona ha risposto a una tua richiesta di permesso (yes/no). Se yes procedi (per cancellare testo di una persona passa approvalId a delete_text); se no non farlo. Poi togli la richiesta con erase(drawingId)."
+          : "",
         needVision ? "Alcuni candidati sono schizzi: guardali con get_board_image(nodeIds) prima di interpretarli." : "",
         drawingEdits.length
           ? "drawingEdits: una persona ha modificato o cancellato i tuoi disegni (added/removed = testi cambiati). È una richiesta di modifica al progetto: adegua il progetto e il resto della lavagna a quello che vedi ora."

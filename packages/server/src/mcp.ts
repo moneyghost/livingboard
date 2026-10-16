@@ -32,7 +32,8 @@ La lavagna è il progetto:
 Regole:
 - Tipi liberi ma coerenti: riusa i tipi già presenti nell'ontologia; creane uno nuovo solo se serve, con un'icona emoji e un colore.
 - Non bloccarti mai: se manca un dettaglio scegli un valore sensato e scrivilo in assumptions.
-- Non modificare gli elementi disegnati dalle persone: i tuoi sono marcati come AI.
+- Non modificare gli elementi disegnati dalle persone: i tuoi sono marcati come AI. Unica eccezione, il testo: se un testo di una persona è superato o sbagliato puoi cancellarlo (intero o una parte) con delete_text, ma solo dopo un Sì con ask_permission(about: quel testo).
+- Quando ti serve un permesso (permessi CHIEDI, azioni irreversibili, cancellare testo delle persone) chiedilo sulla lavagna con ask_permission: la persona spunta Sì o No e la risposta arriva in wait_for_changes.approvals. Finché non arriva un Sì non procedere; dopo aver agito cancella la richiesta con erase.
 - Il feedback dell'utente (confirm, reject, retype, reply, view-edit, view-apply) vale più delle tue ipotesi.
 - Prima di scrivere una vista nuova controlla list_views: se ne esiste una adatta usa apply_view. Quando una vista che hai creato è riusabile, salvala con save_view.
 - "removed" elenca cose cancellate: ripulisci ciò che avevi costruito e disegnato per loro, se i permessi lo consentono.
@@ -524,6 +525,53 @@ Keep it simple and readable: a viewBox, few colors (the board's ink + 1-2 accent
       b.touchAgent("riordina i suoi disegni");
       b.log(`Ha cancellato ${drawingIds.length === 1 ? "un suo disegno" : `${drawingIds.length} suoi disegni`}`, "draw");
       return json({ erased: drawingIds, elements: count });
+    },
+  );
+
+  server.registerTool(
+    "ask_permission",
+    {
+      title: "Chiedi il permesso sulla lavagna",
+      description:
+        "Ask a yes/no permission on the board: draws the question with two empty boxes, \"☐ Sì  ☐ No\". The person answers by marking a box (a pen tick, an x, a ✓); the answer arrives in wait_for_changes.approvals (and board_overview.approvals), the chosen box turns green or red. Use it whenever you need a go-ahead: before irreversible actions, in permission mode ask, and before deleting people's text (pass the elements in `about`, then give the approvalId to delete_text). One short question (max 30 words). Once you acted on the answer, erase the drawing.",
+      inputSchema: {
+        board: boardArg,
+        question: z.string().describe("Short yes/no question, e.g. \"Cancello la nota 'login con Google'?\""),
+        about: z.array(z.string()).optional().describe("Element, candidate or node ids the request concerns (required to delete people's text)"),
+        near: z.string().optional().describe("Node/candidate id to draw it next to (default: next to the first `about`)"),
+      },
+    },
+    async ({ board, question, about, near }) => {
+      const b = getB(board);
+      for (const id of about ?? []) if (!b.resolveBBox(id)) throw new Error(`${id}: elemento o nodo sconosciuto.`);
+      const anchorId = near ?? about?.[0];
+      const nodeId = anchorId && b.candidate(anchorId) ? anchorId : undefined;
+      const drawer = drawerFor(b, { kind: "permission", title: question.slice(0, 60), nodeId });
+      const { yesBox, noBox } = drawer.permission(question, anchorOf(b, anchorId));
+      const approvalId = uid("ok_");
+      finish(b, drawer, { nodeId, activity: "chiede il permesso", log: `Chiede il permesso: ${question.slice(0, 60)}` });
+      b.addApproval({ id: approvalId, question, drawingId: drawer.drawingId!, yesBox, noBox, about, nodeId, answer: "pending", at: Date.now() });
+      return json({ approvalId, drawingId: drawer.drawingId, next: "Aspetta la risposta in wait_for_changes (approvals) senza procedere." });
+    },
+  );
+
+  server.registerTool(
+    "delete_text",
+    {
+      title: "Cancella testo",
+      description:
+        "Delete text on the board, whole or only a part of it. Targets: ids (a text element, a shape with text inside, or a node/candidate: all its texts, or its strokes if handwritten) and/or match (every typed text containing it). part: remove only these words from the targets (typed text only); a text left empty disappears. Your own text goes freely. People's text needs their yes: ask_permission(about: those ids) first, then pass its approvalId here; without it the call fails and tells you what to ask. People can still undo.",
+      inputSchema: {
+        board: boardArg,
+        ids: z.array(z.string()).optional(),
+        match: z.string().optional().describe("Delete every typed text that contains this (case-insensitive)"),
+        part: z.string().optional().describe("Remove only this part of the text, keep the rest"),
+        approvalId: z.string().optional().describe("Permission from ask_permission, answered yes (needed for people's text)"),
+      },
+    },
+    async ({ board, ids, match, part, approvalId }) => {
+      if (!ids?.length && !match) throw new Error("Indica ids o match.");
+      return json(getB(board).deleteText({ ids, match, part, approvalId }));
     },
   );
 

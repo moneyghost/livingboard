@@ -128,6 +128,8 @@ Ogni disegno ha un `drawingId`. Quando il progetto cambia Claude lo **ridisegna 
 | `draw_svg` | qualsiasi disegno da SVG: forme, riempimenti, testo, frecce, gruppi |
 | `draw_table` | tabella disegnata a mano (fino a 20×8), celle evidenziate |
 | `erase` | cancella disegni di Claude superati (per `drawingId`) |
+| `ask_permission` | chiede un permesso sulla lavagna: domanda con caselle "☐ Sì ☐ No"; la persona ci fa un segno (spunta a penna, x, ✓) e la risposta arriva in `wait_for_changes.approvals` |
+| `delete_text` | cancella un testo, intero o solo una parte; il testo di una persona solo dopo un Sì con `ask_permission` |
 | `draw_diagram` | diagramma da Mermaid |
 | `draw_chart` | grafico a barre (1-8 valori) |
 | `annotate` | cerchio, sottolineatura, evidenziatore, ✓/✗, richiamo |

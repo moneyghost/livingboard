@@ -143,7 +143,7 @@ async function handleDigest(req: IncomingMessage, res: ServerResponse) {
   const project = registerProject(root);
   const boards = openBoardsOf(project.id)
     .map((b) => ({ board: b.label, ...b.pending() }))
-    .filter((p) => p.ideas || p.links || p.feedback || p.removed || p.drawingEdits);
+    .filter((p) => p.ideas || p.links || p.feedback || p.removed || p.drawingEdits || p.approvals);
   const sig = boards.map((p) => p.board + p.sig).join("#");
   const seenKey = `${session ?? ""}@${project.id}`;
   const fresh = !!boards.length && digestSeen.get(seenKey) !== sig;
