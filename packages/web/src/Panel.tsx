@@ -25,11 +25,11 @@ interface Props {
 
 function ago(ms: number) {
   const s = Math.round(ms / 1000);
-  if (s < 5) return "ora";
-  if (s < 60) return `${s}s fa`;
+  if (s < 5) return "now";
+  if (s < 60) return `${s}s ago`;
   const m = Math.round(s / 60);
-  if (m < 60) return `${m} min fa`;
-  return `${Math.round(m / 60)} h fa`;
+  if (m < 60) return `${m} min ago`;
+  return `${Math.round(m / 60)} h ago`;
 }
 
 function Segmented<T extends string>(props: { value: T; options: [T, string][]; onChange: (v: T) => void }) {
@@ -68,7 +68,7 @@ function Copy({ text }: { text: string }) {
           }
         }}
       >
-        {done ? "✓" : "Copia"}
+        {done ? "✓" : "Copy"}
       </button>
     </div>
   );
@@ -76,18 +76,18 @@ function Copy({ text }: { text: string }) {
 
 const HINTS = {
   mode: {
-    hybrid: "Claude propone come legge ogni cosa; costruisce solo ciò che confermi.",
-    implicit: "Claude interpreta e agisce subito; tu correggi quando sbaglia.",
+    hybrid: "Claude proposes how it reads each thing; it builds only what you confirm.",
+    implicit: "Claude interprets and acts right away; you correct it when it gets it wrong.",
   },
   effort: {
-    low: "Risponde solo alle domande @AI.",
-    medium: "Legge tutto ciò che si assesta e costruisce ciò che è chiaro.",
-    high: "Più proattivo: costruisce e propone idee fantasma.",
+    low: "Only answers @AI questions.",
+    medium: "Reads everything that settles and builds what is clear.",
+    high: "More proactive: builds and proposes ghost ideas.",
   },
   permission: {
-    read: "Niente file né sistemi esterni.",
-    ask: "Chiede sulla lavagna prima di costruire.",
-    auto: "Azioni reversibili subito; chiede per quelle irreversibili.",
+    read: "No files or external systems.",
+    ask: "Asks on the board before building.",
+    auto: "Reversible actions right away; asks before irreversible ones.",
   },
 } as const;
 
@@ -113,12 +113,12 @@ export function Panel({ model, board, project, me, lens, onLens, showBoxes, onSh
   const since = agent?.lastSeen ? now - agent.lastSeen : Infinity;
   const status =
     agent?.listening && since < 60_000
-      ? { cls: "listening", text: "Claude è in ascolto" }
+      ? { cls: "listening", text: "Claude is listening" }
       : since < 20_000
-        ? { cls: "working", text: "Claude sta lavorando" }
+        ? { cls: "working", text: "Claude is working" }
         : since < 120_000
-          ? { cls: "idle", text: "Claude collegato" }
-          : { cls: "off", text: "Claude non collegato" };
+          ? { cls: "idle", text: "Claude connected" }
+          : { cls: "off", text: "Claude not connected" };
 
   const queued = [...candidates.values()].filter((c) => c.state === "ready").length;
   const counts = new Map<string, number>();
@@ -128,7 +128,7 @@ export function Panel({ model, board, project, me, lens, onLens, showBoxes, onSh
 
   if (collapsed) {
     return (
-      <button type="button" className="panel-tab" onClick={() => setCollapsed(false)} title="Apri il pannello Livingboard">
+      <button type="button" className="panel-tab" onClick={() => setCollapsed(false)} title="Open the Livingboard panel">
         <span className={`status-dot ${status.cls}`} />✳
       </button>
     );
@@ -145,10 +145,10 @@ export function Panel({ model, board, project, me, lens, onLens, showBoxes, onSh
                 <b>{project}</b> ·{" "}
               </>
             )}
-            lavagna <b>{board}</b> · tu sei <b style={{ color: me.color }}>{me.name}</b>
+            board <b>{board}</b> · you are <b style={{ color: me.color }}>{me.name}</b>
           </span>
         </div>
-        <button type="button" className="icon-btn" onClick={() => setCollapsed(true)} title="Chiudi pannello">
+        <button type="button" className="icon-btn" onClick={() => setCollapsed(true)} title="Close panel">
           ⟩
         </button>
       </header>
@@ -162,21 +162,21 @@ export function Panel({ model, board, project, me, lens, onLens, showBoxes, onSh
         {agent?.activity && since < 30_000 && <p className="small">{agent.activity}</p>}
         {queued > 0 && (
           <p className="small muted">
-            {queued === 1 ? "1 elemento" : `${queued} elementi`} da leggere
+            {queued === 1 ? "1 item" : `${queued} items`} to read
           </p>
         )}
         {status.cls === "off" && (
           <div className="connect">
             {project ? (
               <>
-                <p className="small">In Claude Code, nella cartella del progetto:</p>
+                <p className="small">In Claude Code, in the project folder:</p>
                 <Copy text={board === "main" ? "/whiteboard" : `/whiteboard ${board}`} />
               </>
             ) : (
               <>
-                <p className="small">Collega Claude Code alla lavagna:</p>
+                <p className="small">Connect Claude Code to the board:</p>
                 <Copy text={`claude mcp add --transport http livingboard ${mcpUrl}`} />
-                <p className="small">poi, dentro Claude Code:</p>
+                <p className="small">then, inside Claude Code:</p>
                 <Copy text="/mcp__livingboard__start" />
               </>
             )}
@@ -186,10 +186,10 @@ export function Panel({ model, board, project, me, lens, onLens, showBoxes, onSh
 
       <div className="panel-tabs" role="tablist">
         <button type="button" role="tab" aria-selected={tab === "board"} className={tab === "board" ? "on" : ""} onClick={() => setTab("board")}>
-          Lavagna
+          Board
         </button>
         <button type="button" role="tab" aria-selected={tab === "doc"} className={tab === "doc" ? "on" : ""} onClick={() => setTab("doc")}>
-          Documento{docCount ? ` · ${docCount}` : ""}
+          Document{docCount ? ` · ${docCount}` : ""}
         </button>
       </div>
 
@@ -200,14 +200,14 @@ export function Panel({ model, board, project, me, lens, onLens, showBoxes, onSh
       ) : (
         <>
       <section>
-        <h2>Come lavora l'AI</h2>
+        <h2>How the AI works</h2>
         <label className="field">
-          <span>Riconoscimento</span>
+          <span>Recognition</span>
           <Segmented
             value={s.mode}
             options={[
-              ["hybrid", "Ibrido"],
-              ["implicit", "Implicito"],
+              ["hybrid", "Hybrid"],
+              ["implicit", "Implicit"],
             ]}
             onChange={(v) => model.setSetting("mode", v)}
           />
@@ -218,21 +218,21 @@ export function Panel({ model, board, project, me, lens, onLens, showBoxes, onSh
           <Segmented
             value={s.effort}
             options={[
-              ["low", "Basso"],
-              ["medium", "Medio"],
-              ["high", "Alto"],
+              ["low", "Low"],
+              ["medium", "Medium"],
+              ["high", "High"],
             ]}
             onChange={(v) => model.setSetting("effort", v)}
           />
           <small className="muted">{HINTS.effort[s.effort]}</small>
         </label>
         <label className="field">
-          <span>Permessi</span>
+          <span>Permissions</span>
           <Segmented
             value={s.permission}
             options={[
-              ["read", "Sola lettura"],
-              ["ask", "Chiedi"],
+              ["read", "Read-only"],
+              ["ask", "Ask"],
               ["auto", "Auto"],
             ]}
             onChange={(v) => model.setSetting("permission", v)}
@@ -241,22 +241,22 @@ export function Panel({ model, board, project, me, lens, onLens, showBoxes, onSh
         </label>
         <label className="toggle">
           <input type="checkbox" checked={lens} onChange={(e) => onLens(e.target.checked)} />
-          <span>Lente AI: etichetta, relazioni e stato su ogni idea (spenta: lavagna pulita, l'etichetta compare solo su ciò che selezioni)</span>
+          <span>AI lens: label, relations and status on every idea (off: a clean board, labels only on what you select)</span>
         </label>
         <label className="toggle">
           <input type="checkbox" checked={showBoxes} onChange={(e) => onShowBoxes(e.target.checked)} disabled={!lens} />
-          <span>Mostra sempre i riquadri delle idee (altrimenti solo quando servono)</span>
+          <span>Always show idea outlines (otherwise only when needed)</span>
         </label>
         <label className="toggle">
           <input type="checkbox" checked={tablet} onChange={(e) => onTablet(e.target.checked)} />
-          <span>Modalità tablet: penna per scrivere, dita per spostarti</span>
+          <span>Tablet mode: pen to write, fingers to move around</span>
         </label>
       </section>
 
       <section>
-        <h2>Ontologia emergente</h2>
+        <h2>Emerging ontology</h2>
         {ontology.size === 0 ? (
-          <p className="muted small">Nessun tipo, per ora. Disegna qualcosa: i tipi nascono da come Claude legge la lavagna.</p>
+          <p className="muted small">No types yet. Draw something: types emerge from how Claude reads the board.</p>
         ) : (
           <ul className="types">
             {[...ontology.values()].map((t) => (
@@ -273,9 +273,9 @@ export function Panel({ model, board, project, me, lens, onLens, showBoxes, onSh
       </section>
 
       <section>
-        <h2>Viste salvate</h2>
+        <h2>Saved views</h2>
         {savedViews.length === 0 ? (
-          <p className="muted small">Tocca ☆ sull'intestazione di una vista per salvarla e riusarla su altri nodi e lavagne.</p>
+          <p className="muted small">Tap ☆ on a view's header to save it and reuse it on other nodes and boards.</p>
         ) : (
           <ul className="registry">
             {savedViews.map((v) => (
@@ -283,15 +283,15 @@ export function Panel({ model, board, project, me, lens, onLens, showBoxes, onSh
                 <div>
                   <b>{v.title}</b>
                   <span className="muted small">
-                    {v.required.length ? ` · richiede ${v.required.join(", ")}` : ""} · {v.author}
+                    {v.required.length ? ` · requires ${v.required.join(", ")}` : ""} · {v.author}
                   </span>
                 </div>
                 <button
                   type="button"
                   className="icon-btn small-btn"
-                  aria-label={`Elimina ${v.title}`}
+                  aria-label={`Delete ${v.title}`}
                   onClick={() => {
-                    if (window.confirm(`Eliminare «${v.title}» dal registro? Le lavagne che la usano la tengono.`)) void deleteView(v.name);
+                    if (window.confirm(`Delete “${v.title}” from the registry? Boards that use it keep it.`)) void deleteView(v.name);
                   }}
                 >
                   ×
@@ -304,7 +304,7 @@ export function Panel({ model, board, project, me, lens, onLens, showBoxes, onSh
 
       {boardComments.length > 0 && (
         <section>
-          <h2>Note sulla lavagna</h2>
+          <h2>Board notes</h2>
           <ul className="activity">
             {boardComments.slice(0, 5).map((c) => (
               <li key={c.id}>
@@ -318,9 +318,9 @@ export function Panel({ model, board, project, me, lens, onLens, showBoxes, onSh
       )}
 
       <section className="grow">
-        <h2>Attività</h2>
+        <h2>Activity</h2>
         {activity.length === 0 ? (
-          <p className="muted small">Qui vedrai cosa fa Claude, passo per passo.</p>
+          <p className="muted small">Here you'll see what Claude does, step by step.</p>
         ) : (
           <ul className="activity">
             {[...activity]
@@ -348,15 +348,15 @@ export function Panel({ model, board, project, me, lens, onLens, showBoxes, onSh
           disabled={proposal.has("current")}
           onClick={() => {
             const ok = model.proposeLayout();
-            setTidyMsg(ok ? "" : "Niente da riordinare: servono idee collegate da frecce.");
+            setTidyMsg(ok ? "" : "Nothing to tidy: it needs ideas connected by arrows.");
           }}
-          title="Anteprima di un riordino ad albero che segue le tue frecce"
+          title="Preview a tree layout that follows your arrows"
         >
-          {proposal.has("current") ? "Anteprima del riordino aperta" : "Riordina la lavagna"}
+          {proposal.has("current") ? "Tidy preview open" : "Tidy the board"}
         </button>
         {tidyMsg && <p className="muted small">{tidyMsg}</p>}
         <button type="button" className="btn" onClick={onExample}>
-          Carica esempio: app meteo
+          Load example: weather app
         </button>
       </footer>
     </aside>

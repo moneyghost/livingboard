@@ -48,9 +48,9 @@ export interface SaveInput {
 }
 
 export function saveView(input: SaveInput): SavedView {
-  if (!input.html?.trim()) throw new Error("La vista non ha HTML.");
-  if (!input.title?.trim()) throw new Error("Serve un titolo.");
-  if (input.html.length > 200_000) throw new Error("Vista troppo grande (max 200 KB).");
+  if (!input.html?.trim()) throw new Error("The view has no HTML.");
+  if (!input.title?.trim()) throw new Error("A title is required.");
+  if (input.html.length > 200_000) throw new Error("View too large (max 200 KB).");
   const name = slugify(input.name || input.title);
   const old = load().get(name);
   const now = Date.now();
@@ -63,7 +63,7 @@ export function saveView(input: SaveInput): SavedView {
     html: input.html,
     width: input.width ?? old?.width ?? 360,
     height: input.height ?? old?.height ?? 280,
-    author: input.author ?? old?.author ?? "sconosciuto",
+    author: input.author ?? old?.author ?? "unknown",
     createdAt: old?.createdAt ?? now,
     updatedAt: now,
   };

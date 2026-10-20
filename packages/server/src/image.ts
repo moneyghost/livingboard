@@ -76,17 +76,17 @@ export type ImageSource = { path?: string; url?: string; data?: string };
  */
 export async function loadImage(src: ImageSource, opts: { allowPath: boolean }): Promise<LoadedImage> {
   const given = [src.path, src.url, src.data].filter((v) => v !== undefined).length;
-  if (given !== 1) throw new Error("Passa una sola sorgente: path, url oppure data (base64).");
+  if (given !== 1) throw new Error("Pass exactly one source: path, url or data (base64).");
   let buf: Buffer;
   if (src.path !== undefined) {
-    if (!opts.allowPath) throw new Error("path funziona solo se l'agente gira sullo stesso computer del server: usa url o data (base64).");
+    if (!opts.allowPath) throw new Error("path only works when the agent runs on the same computer as the server: use url or data (base64).");
     const file = resolve(src.path);
     const size = statSync(file).size;
     if (size > MAX_IMAGE_BYTES) throw new Error(tooBig(size));
     buf = readFileSync(file);
   } else if (src.url !== undefined) {
     const url = new URL(src.url);
-    if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error("Solo url http o https.");
+    if (url.protocol !== "http:" && url.protocol !== "https:") throw new Error("Only http or https urls.");
     const res = await fetch(url, { signal: AbortSignal.timeout(15_000), redirect: "follow" });
     if (!res.ok) throw new Error(`${url.href}: HTTP ${res.status}`);
     const declared = Number(res.headers.get("content-length") ?? 0);
@@ -97,7 +97,7 @@ export async function loadImage(src: ImageSource, opts: { allowPath: boolean }):
   }
   if (buf.length > MAX_IMAGE_BYTES) throw new Error(tooBig(buf.length));
   const info = sniffImage(buf);
-  if (!info || !info.width || !info.height) throw new Error("Non è un'immagine supportata (PNG, JPEG, GIF, WebP o SVG).");
+  if (!info || !info.width || !info.height) throw new Error("Not a supported image (PNG, JPEG, GIF, WebP or SVG).");
   // Same id scheme as Excalidraw (hash of the content): the same picture is stored once.
   const id = createHash("sha1").update(buf).digest("hex");
   return {
@@ -108,4 +108,4 @@ export async function loadImage(src: ImageSource, opts: { allowPath: boolean }):
 }
 
 const tooBig = (bytes: number) =>
-  `Immagine troppo grande (${(bytes / 1024 / 1024).toFixed(1)} MB, max ${MAX_IMAGE_BYTES / 1024 / 1024} MB): ridimensionala o comprimila.`;
+  `Image too large (${(bytes / 1024 / 1024).toFixed(1)} MB, max ${MAX_IMAGE_BYTES / 1024 / 1024} MB): resize or compress it.`;

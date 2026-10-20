@@ -54,7 +54,7 @@ const fmt = (v: unknown) => (typeof v === "object" ? JSON.stringify(v) : String(
 function toMarkdown(sections: DocSection[], groups: [string, AINode[]][], edgesFrom: (id: string) => string[]) {
   const out: string[] = [];
   for (const s of sections) out.push(`## ${s.title}`, "", s.markdown, "");
-  if (groups.length) out.push("## Mappa della lavagna", "");
+  if (groups.length) out.push("## Board map", "");
   for (const [type, list] of groups) {
     out.push(`### ${type}`, "");
     for (const n of list) {
@@ -114,13 +114,13 @@ export function DocumentView({ model, onFocus }: { model: BoardModel; onFocus: (
     <div className="doc">
       <div className="doc-actions">
         <button type="button" className="btn" onClick={copy}>
-          {copied ? "✓ Copiato" : "Copia Markdown"}
+          {copied ? "✓ Copied" : "Copy Markdown"}
         </button>
       </div>
 
       {sections.length === 0 ? (
         <p className="muted small">
-          Qui Claude scrive riepiloghi, elenchi e schede, così la lavagna resta fatta di disegni.
+          Claude writes summaries, lists and cards here, so the board stays made of drawings.
         </p>
       ) : (
         sections.map((s) => (
@@ -144,7 +144,7 @@ export function DocumentView({ model, onFocus }: { model: BoardModel; onFocus: (
 
       {groups.length > 0 && (
         <section className="doc-section">
-          <h3>Mappa della lavagna</h3>
+          <h3>Board map</h3>
           {groups.map(([type, list]) => (
             <div key={type} className="doc-type">
               <h4>
@@ -175,7 +175,7 @@ export function DocumentView({ model, onFocus }: { model: BoardModel; onFocus: (
                       </div>
                     ))}
                     {n.build?.state === "done" && n.build.files?.length ? (
-                      <div className="doc-rel small">✓ {n.build.files.length} file</div>
+                      <div className="doc-rel small">✓ {n.build.files.length} {n.build.files.length === 1 ? "file" : "files"}</div>
                     ) : null}
                   </li>
                 ))}

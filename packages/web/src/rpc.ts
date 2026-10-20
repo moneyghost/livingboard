@@ -23,7 +23,7 @@ type Msg =
 async function exportImage(api: ExcalidrawImperativeAPI, msg: Extract<Msg, { type: "export" }>) {
   const wanted = msg.elementIds ? new Set(msg.elementIds) : null;
   const elements = api.getSceneElements().filter((e) => !wanted || wanted.has(e.id));
-  if (!elements.length) throw new Error("niente da disegnare");
+  if (!elements.length) throw new Error("nothing to draw");
   const blob = await exportToBlob({
     elements,
     appState: { ...api.getAppState(), exportBackground: true, viewBackgroundColor: "#ffffff", exportWithDarkMode: false },
@@ -64,7 +64,7 @@ async function drawMermaid(api: ExcalidrawImperativeAPI, msg: Extract<Msg, { typ
   const { parseMermaidToExcalidraw } = await import("@excalidraw/mermaid-to-excalidraw");
   const { elements: skeleton } = await parseMermaidToExcalidraw(msg.mermaid, { themeVariables: { fontSize: "16px" } });
   const converted = convertToExcalidrawElements(skeleton as ExcalidrawElementSkeleton[], { regenerateIds: true });
-  if (!converted.length) throw new Error("diagramma vuoto");
+  if (!converted.length) throw new Error("empty diagram");
   const [minX, minY, maxX, maxY] = getCommonBounds(converted);
   const scene = api.getSceneElementsIncludingDeleted();
   const occupied = scene.filter((e) => !e.isDeleted).map((e) => elementBBox(e as Parameters<typeof elementBBox>[0]));
@@ -123,7 +123,7 @@ export function startRenderer(board: string, getApi: () => ExcalidrawImperativeA
       const reply = (payload: Record<string, unknown>) => ws?.send(JSON.stringify({ id: msg.id, ...payload }));
       try {
         const api = getApi();
-        if (!api) throw new Error("lavagna non pronta");
+        if (!api) throw new Error("board not ready");
         const result = msg.type === "mermaid" ? await drawMermaid(api, msg) : await exportImage(api, msg);
         reply({ ok: true, ...result });
       } catch (err) {

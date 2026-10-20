@@ -27,16 +27,16 @@ async function call<T = unknown>(name: string, args: Record<string, unknown> = {
   return JSON.parse(text) as T;
 }
 
-/** "App: Meteo in bici" → type "app", label "Meteo in bici". Anything else gets a generic type. */
+/** "App: Bike weather" → type "app", label "Bike weather". Anything else gets a generic type. */
 function guess(c: Change) {
   const first = c.texts[0] ?? "";
   const m = /^([\p{L}][\p{L} ]{0,20}):\s*(.+)/u.exec(first);
   if (m) return { type: m[1].trim().toLowerCase(), label: m[2].split("\n")[0].trim() };
-  return { type: c.kind === "sketch" ? "schizzo" : c.kind === "frame" ? "area" : "nota", label: (first || c.summary).split("\n")[0].slice(0, 40) };
+  return { type: c.kind === "sketch" ? "sketch" : c.kind === "frame" ? "area" : "note", label: (first || c.summary).split("\n")[0].slice(0, 40) };
 }
 
 await call("board_overview");
-console.log(`✳ smoke agent collegato a ${url}`);
+console.log(`✳ smoke agent connected to ${url}`);
 
 for (let i = 0; i < rounds; i++) {
   const r = await call<Report>("wait_for_changes", { timeoutSec: 30 });
@@ -49,20 +49,20 @@ for (let i = 0; i < rounds; i++) {
       nodes: things.map((c) => ({
         id: c.id,
         ...guess(c),
-        summary: `Lettura automatica: ${c.summary}`,
-        assumptions: ["Lettura euristica dello smoke test, non di un modello"],
+        summary: `Automatic reading: ${c.summary}`,
+        assumptions: ["Heuristic reading by the smoke test, not by a model"],
         confidence: 0.5,
       })),
-      edges: r.links.map((l) => ({ id: l.id, type: l.label ?? "collegato" })),
+      edges: r.links.map((l) => ({ id: l.id, type: l.label ?? "linked" })),
     });
-    for (const line of out.results) console.log("  interpretato", line);
+    for (const line of out.results) console.log("  interpreted", line);
   }
   for (const q of questions) {
-    await call("comment", { nodeId: q.id, kind: "answer", text: `(smoke test) Domanda ricevuta: «${q.texts.join(" ")}». Collega Claude Code per una risposta vera.` });
-    console.log("  risposto a", q.id);
+    await call("comment", { nodeId: q.id, kind: "answer", text: `(smoke test) Question received: “${q.texts.join(" ")}”. Connect Claude Code for a real answer.` });
+    console.log("  answered", q.id);
   }
-  for (const f of r.feedback) console.log(`  feedback ${f.kind} da ${f.user}`);
-  for (const x of r.removed) console.log("  rimosso", x.id);
+  for (const f of r.feedback) console.log(`  feedback ${f.kind} from ${f.user}`);
+  for (const x of r.removed) console.log("  removed", x.id);
 }
 
 await client.close();

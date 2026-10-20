@@ -42,7 +42,7 @@ function slug(s: string): string {
       .replace(/[^\w-]+/g, "-")
       .replace(/^-+|-+$/g, "")
       .toLowerCase()
-      .slice(0, 32) || "progetto"
+      .slice(0, 32) || "project"
   );
 }
 

@@ -77,12 +77,12 @@ function ensureServer(): Promise<void> {
       env: process.env,
     });
     child.unref();
-    log(`server avviato (pid ${child.pid}), log in ${logFile}`);
+    log(`server started (pid ${child.pid}), log in ${logFile}`);
     for (let i = 0; i < 60; i++) {
       await new Promise((r) => setTimeout(r, 250));
       if (await healthy()) return;
     }
-    throw new Error(`Il server Livingboard non risponde su ${BASE}: guarda ${logFile} (porta ${PORT} occupata?).`);
+    throw new Error(`The Livingboard server does not answer on ${BASE}: see ${logFile} (port ${PORT} busy?).`);
   })().finally(() => {
     starting = null;
   });
@@ -138,7 +138,7 @@ async function bridge() {
   });
 
   await server.connect(new StdioServerTransport());
-  log(`ponte MCP pronto · progetto ${root}`);
+  log(`MCP bridge ready · project ${root}`);
 }
 
 // ------------------------------------------------------------------ install
@@ -151,19 +151,19 @@ const HOOK_MARK = "livingboard-hook.mjs";
 
 const SKILL = `---
 name: whiteboard
-description: Apre la lavagna Livingboard di questo progetto (lavagna condivisa che fa da prompt vivo del progetto) e ci lavora sopra. Usala quando l'utente scrive /whiteboard [nome] o chiede di aprire, guardare o usare la lavagna.
-argument-hint: "[nome]"
+description: Opens this project's Livingboard whiteboard (a shared whiteboard that acts as the project's living prompt) and works on it. Use it when the user types /whiteboard [name] or asks to open, look at or use the whiteboard.
+argument-hint: "[name]"
 ---
 
-Apri la lavagna Livingboard "$ARGUMENTS" di questo progetto (se il nome è vuoto: "main").
+Open this project's Livingboard whiteboard "$ARGUMENTS" (if the name is empty: "main").
 
-1. Chiama il tool \`open_board\` del server MCP \`livingboard\` con \`board\` = il nome. Se i tool di livingboard non sono ancora caricati, cercali (ToolSearch "livingboard").
-2. Di' all'utente in una riga dove la trova: l'URL e, se ci sono, gli indirizzi \`lan\` per tablet. Se \`otherBoards\` non è vuoto, nominale.
-3. Leggi \`rules\` nella risposta di \`open_board\`: sono le regole di lavoro sulla lavagna e valgono per tutta la sessione. Poi chiama \`board_overview\` con lo stesso \`board\` e segui anche la sua policy.
-4. Da qui la lavagna è il prompt vivo del progetto: quando costruisci o cambi qualcosa, aggiorna i tuoi disegni (\`replace\`, \`erase\`). Se il contesto di un messaggio segnala novità sulla lavagna, leggile con \`wait_for_changes\` (\`timeoutSec\`: 1) prima di rispondere.
-5. Se l'utente vuole che resti in ascolto, entra nel ciclo \`wait_for_changes\` → \`interpret\` → agisci → \`wait_for_changes\`.
+1. Call the \`open_board\` tool of the \`livingboard\` MCP server with \`board\` = the name. If the livingboard tools are not loaded yet, search for them (ToolSearch "livingboard").
+2. Tell the user in one line where to find it: the URL and, if present, the \`lan\` addresses for tablets. If \`otherBoards\` is not empty, mention them.
+3. Read \`rules\` in the \`open_board\` response: they are the working rules for the board and apply for the whole session. Then call \`board_overview\` with the same \`board\` and follow its policy too.
+4. From now on the board is the project's living prompt: when you build or change something, update your drawings (\`replace\`, \`erase\`). If a message's context reports changes on the board, read them with \`wait_for_changes\` (\`timeoutSec\`: 1) before answering.
+5. If the user wants you to keep listening, enter the loop \`wait_for_changes\` → \`interpret\` → act → \`wait_for_changes\`.
 
-Usa sempre lo stesso \`board\` in tutte le chiamate.
+Always use the same \`board\` in every call.
 `;
 
 function run(cmd: string, args: string[], quiet = false) {
@@ -192,11 +192,11 @@ function setHook(on: boolean) {
 }
 
 function install(lan: boolean) {
-  if (!run("claude", ["--version"], true)) throw new Error("Comando `claude` non trovato: installa Claude Code e riprova.");
+  if (!run("claude", ["--version"], true)) throw new Error("`claude` command not found: install Claude Code and try again.");
 
   if (!existsSync(WEB_DIST)) {
-    console.log("· costruisco la pagina della lavagna (pnpm build)…");
-    if (!run("pnpm", ["--dir", REPO, "build"])) throw new Error("pnpm build non riuscito.");
+    console.log("· building the whiteboard page (pnpm build)…");
+    if (!run("pnpm", ["--dir", REPO, "build"])) throw new Error("pnpm build failed.");
   }
 
   // The bridge, for every project (user scope). `node --import tsx` runs the TypeScript sources.
@@ -204,30 +204,30 @@ function install(lan: boolean) {
   const env = lan ? ["-e", "LIVINGBOARD_HOST=0.0.0.0"] : [];
   const cli = join(SERVER_DIR, "src", "cli.ts");
   if (!run("claude", ["mcp", "add", "livingboard", "--scope", "user", ...env, "--", "node", "--import", TSX, cli, "mcp"])) {
-    throw new Error("claude mcp add non riuscito.");
+    throw new Error("claude mcp add failed.");
   }
-  console.log("✓ server MCP `livingboard` (scope utente, avviato da Claude Code nella cartella del progetto)");
+  console.log("✓ MCP server `livingboard` (user scope, started by Claude Code in the project folder)");
 
   mkdirSync(SKILL_DIR, { recursive: true });
   writeFileSync(join(SKILL_DIR, "SKILL.md"), SKILL);
   console.log(`✓ skill /whiteboard in ${SKILL_DIR}`);
 
   setHook(true);
-  console.log(`✓ hook UserPromptSubmit in ${SETTINGS} (copia di prima: settings.json.livingboard-bak)`);
+  console.log(`✓ UserPromptSubmit hook in ${SETTINGS} (previous copy: settings.json.livingboard-bak)`);
 
   console.log(`
-Fatto. In qualsiasi progetto, in una nuova sessione di Claude Code:
-  /whiteboard          lavagna "main" del progetto
-  /whiteboard ui       un'altra lavagna dello stesso progetto
-Le lavagne si salvano nel progetto, in .livingboard/boards/.${lan ? "\nIl server sarà visibile in rete (tablet): nessuna autenticazione." : ""}
-Nota: dove esiste già un server MCP "livingboard" di progetto o locale (es. vecchio HTTP), vince quello: toglilo con claude mcp remove livingboard.`);
+Done. In any project, in a new Claude Code session:
+  /whiteboard          the project's "main" board
+  /whiteboard ui       another board of the same project
+Boards are saved in the project, in .livingboard/boards/.${lan ? "\nThe server will be visible on the network (tablets): no authentication." : ""}
+Note: where a project or local "livingboard" MCP server already exists (e.g. the old HTTP one), that one wins: remove it with claude mcp remove livingboard.`);
 }
 
 function uninstall() {
   run("claude", ["mcp", "remove", "livingboard", "--scope", "user"]);
   rmSync(SKILL_DIR, { recursive: true, force: true });
   if (existsSync(SETTINGS)) setHook(false);
-  console.log("✓ rimossi server MCP, skill /whiteboard e hook. Le lavagne nei progetti (.livingboard/) restano.");
+  console.log("✓ removed the MCP server, /whiteboard skill and hook. Boards in projects (.livingboard/) stay.");
 }
 
 // ------------------------------------------------------------------ main
@@ -238,7 +238,7 @@ try {
   else if (cmd === "install") install(rest.includes("--lan"));
   else if (cmd === "uninstall") uninstall();
   else {
-    console.log("uso: livingboard mcp | install [--lan] | uninstall");
+    console.log("usage: livingboard mcp | install [--lan] | uninstall");
     process.exitCode = cmd ? 1 : 0;
   }
 } catch (err) {

@@ -3,7 +3,7 @@ export interface Identity {
   color: string;
 }
 
-const NAMES = ["Ada", "Bruno", "Carla", "Dario", "Elena", "Fabio", "Giulia", "Ivo", "Lucia", "Marco", "Nora", "Ottavio", "Paola", "Rita", "Sara", "Tito", "Vera"];
+const NAMES = ["Ada", "Ben", "Clara", "Dan", "Ella", "Felix", "Grace", "Ivy", "Leo", "Max", "Nora", "Oscar", "Paula", "Rose", "Sam", "Theo", "Vera"];
 const COLORS = ["#4c6ef5", "#12b886", "#e64980", "#7950f2", "#15aabf", "#40c057", "#fab005", "#228be6"];
 
 const KEY = "livingboard:identity";

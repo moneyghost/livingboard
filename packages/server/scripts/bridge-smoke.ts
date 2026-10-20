@@ -32,7 +32,7 @@ console.log(
   text(
     await client.callTool({
       name: "draw_table",
-      arguments: { board, title: "Prova ponte", rows: [["Cosa", "Stato"], ["Ponte stdio", "✓"], ["Hook", "⏳"]], header: true },
+      arguments: { board, title: "Bridge test", rows: [["What", "Status"], ["stdio bridge", "✓"], ["Hook", "⏳"]], header: true },
     }),
   ),
 );

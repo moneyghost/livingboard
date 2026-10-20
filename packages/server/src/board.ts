@@ -63,7 +63,7 @@ export interface ChangeReport {
   feedback: unknown[];
   /** Agent drawings people changed (text edited, parts deleted, erased): the board moved, the project should follow. */
   drawingEdits: unknown[];
-  /** Permission requests people answered (ticked Sì or No) since the agent last looked. */
+  /** Permission requests people answered (ticked Yes or No) since the agent last looked. */
   approvals: unknown[];
   idle: boolean;
   hint: string;
@@ -315,7 +315,7 @@ export class Board {
             this.removed.set(c.id, {
               id: c.id,
               kind: c.kind,
-              summary: "interpretazione superata: il nodo è stato diviso o riunito",
+              summary: "interpretation outdated: the node was split or merged",
               interpretation: { type: node.type, label: node.label, files: node.build?.files ?? [] },
             });
             this.nodes.delete(c.id);
@@ -448,21 +448,21 @@ export class Board {
 
   policy(s = this.settings()): string {
     const effort = {
-      low: "Effort BASSO: rispondi solo alle domande (@AI) e ai commenti. Non interpretare né costruire altro.",
-      medium: "Effort MEDIO: interpreta ogni candidato maturo e costruisci ciò che è chiaro.",
-      high: "Effort ALTO: interpreta, costruisci e proponi idee per le lacune evidenti con draw(ghost: true).",
+      low: "LOW effort: only answer questions (@AI) and comments. Do not interpret or build anything else.",
+      medium: "MEDIUM effort: interpret every ripe candidate and build what is clear.",
+      high: "HIGH effort: interpret, build, and suggest ideas for obvious gaps with draw(ghost: true).",
     }[s.effort];
     const permission = {
-      read: "Permessi SOLA LETTURA: non modificare file né sistemi esterni. Solo interpret, comment, draw, attach_view.",
-      ask: "Permessi CHIEDI: prima di costruire qualcosa chiedi con ask_permission e aspetta il Sì in approvals.",
-      auto: "Permessi AUTO: esegui azioni reversibili (file sotto git) senza chiedere; prima di quelle irreversibili (pubblicare, cancellare, inviare) chiedi con ask_permission e aspetta il Sì.",
+      read: "READ-ONLY permissions: do not change files or external systems. Only interpret, comment, draw, attach_view.",
+      ask: "ASK permissions: before building anything, ask with ask_permission and wait for the Yes in approvals.",
+      auto: "AUTO permissions: take reversible actions (files under git) without asking; before irreversible ones (publishing, deleting, sending) ask with ask_permission and wait for the Yes.",
     }[s.permission];
     const mode = {
-      hybrid: "Modalità IBRIDA: le tue interpretazioni sono proposte. Costruisci un nodo solo quando il feedback dice che l'utente l'ha confermato.",
-      implicit: "Modalità IMPLICITA: le tue interpretazioni valgono subito. Mostra le ipotesi (assumptions) così l'utente può correggerti.",
+      hybrid: "HYBRID mode: your interpretations are proposals. Build a node only when feedback says the user confirmed it.",
+      implicit: "IMPLICIT mode: your interpretations count right away. Show your assumptions so the user can correct you.",
     }[s.mode];
     const drawing =
-      "Lavagna = progetto: tienila sempre allineata al progetto, in entrambe le direzioni. Quello che costruisci o decidi lo disegni (draw_svg per schermate, oggetti, schemi; draw_table per confronti, elenchi con attributi, stati; draw_chart per numeri; extend per alberi; draw_diagram per flussi); quando cambia lo aggiorni con replace: drawingId, non aggiungi copie; quando è superato lo cancelli con erase. Le modifiche che le persone fanno ai tuoi disegni (drawingEdits) sono istruzioni sul progetto. Al massimo 20 parole per elemento; il Documento (write_doc) solo per testi lunghi.";
+      "Board = project: keep it in line with the project at all times, both ways. Draw what you build or decide (draw_svg for screens, objects, schemes; draw_table for comparisons, lists with attributes, statuses; draw_chart for numbers; extend for trees; draw_diagram for flows); when it changes, update it with replace: drawingId instead of adding copies; when it is outdated, delete it with erase. Changes people make to your drawings (drawingEdits) are instructions about the project. At most 20 words per element; the Document (write_doc) only for long text.";
     return [mode, effort, permission, drawing].join("\n");
   }
 
@@ -500,7 +500,7 @@ export class Board {
       needsVision: c.needsVision || undefined,
       hint:
         c.kind === "sketch" && c.elementIds.length >= 60
-          ? `Molti tratti (${c.elementIds.length}): se sono più idee guardalo e dividilo con split_node.`
+          ? `Many strokes (${c.elementIds.length}): if it holds several ideas, look at it and split it with split_node.`
           : undefined,
       interpretation: node ? { ...this.nodeBrief(node), stale: node.hash !== c.hash } : null,
     };
@@ -624,7 +624,7 @@ export class Board {
         tint(a.yesBox, answer === "yes" ? "#b2f2bb" : "transparent");
         tint(a.noBox, answer === "no" ? "#ffc9c9" : "transparent");
       }, SERVER);
-      if (answer !== "pending") this.log(`${answer === "yes" ? "Permesso dato" : "Permesso negato"}: ${a.question.slice(0, 60)}`, "info", a.nodeId);
+      if (answer !== "pending") this.log(`${answer === "yes" ? "Permission granted" : "Permission denied"}: ${a.question.slice(0, 60)}`, "info", a.nodeId);
     }
     if (changed) this.wake();
   }
@@ -661,12 +661,12 @@ export class Board {
       }
       const e = live(ref);
       if (!e && lenient) continue;
-      if (!e) throw new Error(`${ref}: elemento o nodo sconosciuto.`);
+      if (!e) throw new Error(`${ref}: unknown element or node.`);
       if (e.type === "text" || e.type === "freedraw") out.set(e.id, e);
       else {
         const bound = ((e as El & { boundElements?: { id: string; type: string }[] | null }).boundElements ?? []).filter((x) => x.type === "text");
         if (!bound.length && lenient) continue;
-        if (!bound.length) throw new Error(`${ref}: non contiene testo.`);
+        if (!bound.length) throw new Error(`${ref}: contains no text.`);
         for (const x of bound) {
           const t = live(x.id);
           if (t) out.set(t.id, t);
@@ -690,26 +690,26 @@ export class Board {
    */
   deleteText(input: { ids?: string[]; match?: string; part?: string; approvalId?: string }) {
     const targets = this.textTargets(input.ids, input.match);
-    if (!targets.length) throw new Error("Nessun testo trovato: controlla ids o match (board_overview elenca i candidati).");
-    if (targets.length > 40) throw new Error(`Troppi testi (${targets.length}): restringi ids o match.`);
+    if (!targets.length) throw new Error("No text found: check ids or match (board_overview lists the candidates).");
+    if (targets.length > 40) throw new Error(`Too many texts (${targets.length}): narrow ids or match.`);
     const human = targets.filter((e) => !isAiAuthored(e));
     if (human.length) {
       const a = input.approvalId ? this.approvals.get(input.approvalId) : undefined;
-      const quote = human.map((e) => `"${(e.text ?? "tratto a mano").slice(0, 40)}"`).join(", ");
+      const quote = human.map((e) => `"${(e.text ?? "hand stroke").slice(0, 40)}"`).join(", ");
       if (!a || a.answer !== "yes") {
         throw new Error(
-          `Testo di una persona (${quote}): chiedi prima con ask_permission(about: [${human.map((e) => `"${e.id}"`).join(", ")}]) e passa il suo approvalId quando ha spuntato Sì.` +
-            (a ? ` La richiesta ${a.id} è ${a.answer === "no" ? "stata rifiutata" : "ancora senza risposta"}.` : ""),
+          `A person's text (${quote}): first ask with ask_permission(about: [${human.map((e) => `"${e.id}"`).join(", ")}]) and pass its approvalId once they ticked Yes.` +
+            (a ? ` Request ${a.id} ${a.answer === "no" ? "was declined" : "has no answer yet"}.` : ""),
         );
       }
       if (a.about?.length) {
         const allowed = new Set(this.textTargets(a.about, undefined, true).map((e) => e.id));
         const outside = human.filter((e) => !allowed.has(e.id));
-        if (outside.length) throw new Error(`Il permesso ${a.id} non copre: ${outside.map((e) => `"${(e.text ?? e.id).slice(0, 40)}"`).join(", ")}.`);
+        if (outside.length) throw new Error(`Permission ${a.id} does not cover: ${outside.map((e) => `"${(e.text ?? e.id).slice(0, 40)}"`).join(", ")}.`);
       }
     }
     if (input.part && targets.some((e) => e.type !== "text")) {
-      throw new Error("part funziona solo sul testo digitato: un testo scritto a mano si cancella intero.");
+      throw new Error("part only works on typed text: handwritten text is deleted whole.");
     }
     const now = Date.now();
     const bump = (e: El, patch: Record<string, unknown>) =>
@@ -720,7 +720,7 @@ export class Board {
     this.doc.transact(() => {
       const remove = (e: El) => {
         this.elements.set(e.id, bump(e, { isDeleted: true }));
-        deleted.push(e.text ?? "(tratto a mano)");
+        deleted.push(e.text ?? "(hand stroke)");
         const container = e.containerId ? this.elements.get(e.containerId) : undefined;
         const refs = (container as (El & { boundElements?: { id: string }[] | null }) | undefined)?.boundElements;
         if (container && refs) this.elements.set(container.id, bump(container, { boundElements: refs.filter((r) => r.id !== e.id) }));
@@ -749,9 +749,9 @@ export class Board {
         edited.push({ before, after });
       }
     }, SERVER);
-    if (input.part && !edited.length && !deleted.length) throw new Error(`"${input.part}" non compare nei testi trovati.`);
-    this.touchAgent("cancella testo");
-    this.log(`Cancella testo: ${[...deleted, ...edited.map((x) => x.before)].map((t) => t.slice(0, 30)).join(", ")}`, "draw");
+    if (input.part && !edited.length && !deleted.length) throw new Error(`"${input.part}" does not appear in the texts found.`);
+    this.touchAgent("deleting text");
+    this.log(`Deleted text: ${[...deleted, ...edited.map((x) => x.before)].map((t) => t.slice(0, 30)).join(", ")}`, "draw");
     return { deleted, edited };
   }
 
@@ -795,7 +795,7 @@ export class Board {
   /** Live elements of one agent drawing; throws if there is none. */
   drawingElements(id: string): El[] {
     const els = this.drawingGroups().get(id);
-    if (!els?.length) throw new Error(`${id}: disegno sconosciuto o già cancellato (vedi drawings in board_overview).`);
+    if (!els?.length) throw new Error(`${id}: unknown or already erased drawing (see drawings in board_overview).`);
     return els;
   }
 
@@ -880,8 +880,8 @@ export class Board {
         updatedAt: Date.now(),
       });
     }, SERVER);
-    this.touchAgent("scrive il Documento");
-    this.log(`Ha ${old ? "aggiornato" : "scritto"} «${input.section}» nel Documento`, "info");
+    this.touchAgent("writing the Document");
+    this.log(`${old ? "Updated" : "Wrote"} “${input.section}” in the Document`, "info");
     return id;
   }
 
@@ -907,7 +907,7 @@ export class Board {
         .map(elementBBox),
     ];
     const moves = treeLayout(nodes, edges, fixed);
-    if (!moves.length) throw new Error("Niente da riordinare: servono nodi collegati da frecce, oppure è già in ordine.");
+    if (!moves.length) throw new Error("Nothing to tidy: it needs nodes linked by arrows, or it is already in order.");
     const p: LayoutProposal = { id: uid("lay_"), title, moves, by, at: Date.now() };
     this.doc.transact(() => this.proposal.set("current", p), SERVER);
     return p;
@@ -917,7 +917,7 @@ export class Board {
 
   async waitForChanges(timeoutMs: number, signal?: AbortSignal): Promise<ChangeReport> {
     this.listeningCount++;
-    this.touchAgent("in ascolto");
+    this.touchAgent("listening");
     try {
       const deadline = Date.now() + timeoutMs;
       while (true) {
@@ -949,7 +949,7 @@ export class Board {
         drawingEdits: [],
         approvals: [],
         idle: true,
-        hint: "Nessuna novità. Richiama wait_for_changes per continuare ad ascoltare.",
+        hint: "Nothing new. Call wait_for_changes again to keep listening.",
       };
     } finally {
       this.listeningCount--;
@@ -1030,7 +1030,7 @@ export class Board {
     if (changes.length) {
       const first = ready.find((c) => c.kind !== "link");
       this.glideTo(first?.id);
-      this.log(`Sta leggendo ${changes.length === 1 ? (changes[0] as { summary: string }).summary : `${changes.length} elementi`}`, "read", first?.id);
+      this.log(`Reading ${changes.length === 1 ? (changes[0] as { summary: string }).summary : `${changes.length} elements`}`, "read", first?.id);
     }
 
     const needVision = (changes as { needsVision?: boolean }[]).some((c) => c.needsVision);
@@ -1048,13 +1048,13 @@ export class Board {
       idle: false,
       hint: [
         approvals.length
-          ? "approvals: una persona ha risposto a una tua richiesta di permesso (yes/no). Se yes procedi (per cancellare testo di una persona passa approvalId a delete_text); se no non farlo. Poi togli la richiesta con erase(drawingId)."
+          ? "approvals: a person answered one of your permission requests (yes/no). If yes, go ahead (to delete a person's text pass approvalId to delete_text); if no, don't. Then remove the request with erase(drawingId)."
           : "",
-        needVision ? "Alcuni candidati sono schizzi: guardali con get_board_image(nodeIds) prima di interpretarli." : "",
+        needVision ? "Some candidates are sketches: look at them with get_board_image(nodeIds) before interpreting them." : "",
         drawingEdits.length
-          ? "drawingEdits: una persona ha modificato o cancellato i tuoi disegni (added/removed = testi cambiati). È una richiesta di modifica al progetto: adegua il progetto e il resto della lavagna a quello che vedi ora."
+          ? "drawingEdits: a person changed or deleted your drawings (added/removed = changed texts). It is a change request for the project: adapt the project and the rest of the board to what you see now."
           : "",
-        "Interpreta con interpret(); poi agisci secondo la policy; poi richiama wait_for_changes.",
+        "Interpret with interpret(); then act per the policy; then call wait_for_changes again.",
       ]
         .filter(Boolean)
         .join(" "),
@@ -1080,7 +1080,7 @@ export class Board {
       for (const n of input.nodes ?? []) {
         const cand = this.candidates.get(n.id);
         if (!cand) {
-          errors.push(`${n.id}: candidato sconosciuto (forse cancellato)`);
+          errors.push(`${n.id}: unknown candidate (deleted?)`);
           continue;
         }
         const existing = this.nodes.get(n.id);
@@ -1109,7 +1109,7 @@ export class Board {
           updatedAt: now,
         });
         if (!this.ontology.has(type)) this.upsertType({ name: type });
-        results.push(`${n.id} → ${type} «${n.label}» (${status})`);
+        results.push(`${n.id} → ${type} “${n.label}” (${status})`);
       }
 
       for (const e of input.edges ?? []) {
@@ -1117,7 +1117,7 @@ export class Board {
         const from = e.from ?? link?.from;
         const to = e.to ?? link?.to;
         if (!from || !to || !this.candidates.has(from) || !this.candidates.has(to)) {
-          errors.push(`relazione ${e.id ?? `${from}→${to}`}: estremi sconosciuti`);
+          errors.push(`edge ${e.id ?? `${from}→${to}`}: unknown ends`);
           continue;
         }
         const id = link?.id ?? e.id ?? `e_${from}_${to}_${e.type.replace(/\W+/g, "_")}`;
@@ -1145,9 +1145,9 @@ export class Board {
     const first = input.nodes?.[0];
     if (first && this.candidates.has(first.id)) {
       this.glideTo(first.id);
-      this.touchAgent(`legge «${first.label}»`, first.id);
+      this.touchAgent(`reading “${first.label}”`, first.id);
       const n = input.nodes!.length;
-      this.log(n === 1 ? `Ha letto «${first.label}» come ${first.type}` : `Ha interpretato ${n} elementi`, "interpret", first.id);
+      this.log(n === 1 ? `Read “${first.label}” as ${first.type}` : `Interpreted ${n} elements`, "interpret", first.id);
     } else this.touchAgent();
 
     return { mode, results, errors };
@@ -1166,7 +1166,7 @@ export class Board {
 
   setStatus(nodeId: string, state: NonNullable<AINode["build"]>["state"], message?: string, files?: string[]) {
     const node = this.nodes.get(nodeId);
-    if (!node) throw new Error(`Nodo ${nodeId} non interpretato: chiama prima interpret().`);
+    if (!node) throw new Error(`Node ${nodeId} is not interpreted: call interpret() first.`);
     this.doc.transact(() => {
       this.nodes.set(nodeId, {
         ...node,
@@ -1174,13 +1174,13 @@ export class Board {
       });
     }, SERVER);
     this.glideTo(nodeId);
-    const verb = { idle: "in pausa", waiting: "in attesa", building: "costruisce", done: "ha finito", error: "errore su", question: "ha un dubbio su" }[state];
-    this.touchAgent(`${verb} «${node.label}»`, nodeId);
-    this.log(`${verb[0].toUpperCase()}${verb.slice(1)} «${node.label}»${message ? `: ${message}` : ""}`, "build", nodeId);
+    const verb = { idle: "paused on", waiting: "waiting on", building: "building", done: "finished", error: "error on", question: "unsure about" }[state];
+    this.touchAgent(`${verb} “${node.label}”`, nodeId);
+    this.log(`${verb[0].toUpperCase()}${verb.slice(1)} “${node.label}”${message ? `: ${message}` : ""}`, "build", nodeId);
   }
 
   comment(input: { nodeId?: string; text: string; kind?: Comment["kind"]; replyTo?: string }) {
-    if (input.nodeId && !this.candidates.has(input.nodeId)) throw new Error(`Candidato ${input.nodeId} sconosciuto.`);
+    if (input.nodeId && !this.candidates.has(input.nodeId)) throw new Error(`Unknown candidate ${input.nodeId}.`);
     const c: Comment = {
       id: uid("cm_"),
       nodeId: input.nodeId ?? (input.replyTo ? this.comments.get(input.replyTo)?.nodeId : undefined),
@@ -1193,8 +1193,8 @@ export class Board {
     };
     this.doc.transact(() => this.comments.set(c.id, c), SERVER);
     this.glideTo(c.nodeId, c.kind === "answer" ? "laser" : "pointer");
-    this.touchAgent(c.kind === "question" ? "fa una domanda" : "commenta", c.nodeId);
-    this.log(`${c.kind === "question" ? "Chiede" : "Commenta"}: ${c.text.slice(0, 80)}`, "comment", c.nodeId);
+    this.touchAgent(c.kind === "question" ? "asking a question" : "commenting", c.nodeId);
+    this.log(`${c.kind === "question" ? "Asked" : "Commented"}: ${c.text.slice(0, 80)}`, "comment", c.nodeId);
     return c.id;
   }
 
@@ -1216,8 +1216,8 @@ export class Board {
    */
   replaceImage(id: string, file: BoardFile, aspect: number, caption?: string) {
     const el = this.elements.get(id);
-    if (!el || el.isDeleted || el.type !== "image") throw new Error(`${id}: non è un'immagine sulla lavagna.`);
-    if (!isAiAuthored(el)) throw new Error(`${id}: l'immagine è di una persona, non la sostituisco. Aggiungine una nuova.`);
+    if (!el || el.isDeleted || el.type !== "image") throw new Error(`${id}: not an image on the board.`);
+    if (!isAiAuthored(el)) throw new Error(`${id}: this image belongs to a person, so it is not replaced. Add a new one.`);
     const oldFile = (el as El & { fileId?: string }).fileId;
     const bump = (e: El, patch: Record<string, unknown>) =>
       ({ ...e, ...patch, version: e.version + 1, versionNonce: Math.floor(Math.random() * 2 ** 31), updated: Date.now() }) as El;
@@ -1242,7 +1242,7 @@ export class Board {
   }
 
   attachView(input: { nodeId: string; title: string; html: string; width?: number; height?: number; source?: string }) {
-    if (!this.nodes.has(input.nodeId)) throw new Error(`Nodo ${input.nodeId} non interpretato: chiama prima interpret().`);
+    if (!this.nodes.has(input.nodeId)) throw new Error(`Node ${input.nodeId} is not interpreted: call interpret() first.`);
     const id = `v_${input.nodeId}`;
     const old = this.views.get(id);
     this.doc.transact(() => {
@@ -1260,8 +1260,8 @@ export class Board {
       });
     }, SERVER);
     this.glideTo(input.nodeId);
-    this.touchAgent(`crea la vista «${input.title}»`, input.nodeId);
-    this.log(`Ha creato la vista «${input.title}»`, "view", input.nodeId);
+    this.touchAgent(`creating the view “${input.title}”`, input.nodeId);
+    this.log(`Created the view “${input.title}”`, "view", input.nodeId);
     return id;
   }
 
@@ -1271,7 +1271,7 @@ export class Board {
    */
   group(elementIds: string[], by: ExplicitGroup["by"]): string {
     const ids = [...new Set(elementIds)].filter((id) => this.elements.has(id));
-    if (ids.length === 0) throw new Error("Nessun elemento da raggruppare.");
+    if (ids.length === 0) throw new Error("No elements to group.");
     const id = uid("grp_");
     this.doc.transact(() => {
       this.releaseFromGroups(ids);
@@ -1319,7 +1319,7 @@ export function getBoard(key = "main"): Board {
   let b = boards.get(key);
   if (!b) {
     const k = parseBoardKey(key);
-    if (k.projectId && !k.project) throw new Error(`Progetto sconosciuto: ${k.projectId}`);
+    if (k.projectId && !k.project) throw new Error(`Unknown project: ${k.projectId}`);
     b = new Board(key);
     boards.set(key, b);
   }

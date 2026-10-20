@@ -168,7 +168,7 @@ export class Collab {
       for (const f of fresh) {
         // base64 is 4/3 of the bytes: past the cap the board would get heavy for everyone.
         if (f.dataURL.length * 0.75 > MAX_IMAGE_BYTES) {
-          console.warn(`Livingboard: immagine ${f.id} troppo grande per la condivisione`);
+          console.warn(`Livingboard: image ${f.id} is too large to share`);
           continue;
         }
         this.files.set(f.id, { id: f.id, mimeType: f.mimeType, dataURL: f.dataURL, created: f.created });

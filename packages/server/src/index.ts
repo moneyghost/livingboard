@@ -155,7 +155,7 @@ async function handleDigest(req: IncomingMessage, res: ServerResponse) {
 function serveStatic(req: IncomingMessage, res: ServerResponse, pathname: string) {
   if (!existsSync(WEB_DIST)) {
     res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
-    res.end("Livingboard server attivo. In sviluppo apri la lavagna su http://localhost:5180 (pnpm dev).");
+    res.end("Livingboard server running. In development, open the board at http://localhost:5180 (pnpm dev).");
     return;
   }
   let file = normalize(join(WEB_DIST, decodeURIComponent(pathname)));
@@ -220,9 +220,9 @@ http.on("upgrade", (req, socket, head) => {
 http.listen(PORT, HOST, () => {
   console.log(`\n  ✳ Livingboard server  http://${HOST}:${PORT}`);
   if (HOST === "0.0.0.0") {
-    for (const ip of lanAddresses()) console.log(`    In rete          http://${ip}:5180 (dev) · http://${ip}:${PORT} (build)`);
-    console.log("    ⚠ Nessuna autenticazione: chiunque in questa rete può modificare la lavagna.");
+    for (const ip of lanAddresses()) console.log(`    Network          http://${ip}:5180 (dev) · http://${ip}:${PORT} (build)`);
+    console.log("    ⚠ No authentication: anyone on this network can edit the board.");
   }
   console.log(`    MCP endpoint     http://${HOST}:${PORT}/mcp`);
-  console.log(`    Claude Code      pnpm livingboard install, poi /whiteboard [nome] in qualsiasi progetto\n`);
+  console.log(`    Claude Code      pnpm livingboard install, then /whiteboard [name] in any project\n`);
 });

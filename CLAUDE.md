@@ -1,69 +1,69 @@
-# Livingboard: note per chi sviluppa
+# Livingboard: developer notes
 
-Lavagna collaborativa (Excalidraw + Yjs) letta dall'AI via MCP. Panoramica utente nel README.
+Collaborative whiteboard (Excalidraw + Yjs) read by AI via MCP. User overview in the README.
 
-## Comandi
+## Commands
 
-- `pnpm dev`: server (porta 3333, tsx watch) + web (Vite, 5180) in parallelo
-- `pnpm dev:lan`: uguale ma visibile dalla rete (server con `--lan`, Vite con `--host 0.0.0.0`)
-- `pnpm typecheck`: tutti i pacchetti
-- `pnpm smoke`: agente finto che esercita il ciclo MCP senza LLM
-- `pnpm livingboard install [--lan]` / `uninstall`: server MCP stdio (scope utente), skill `/whiteboard`, hook `UserPromptSubmit`
-- `pnpm --filter @livingboard/server exec tsx scripts/bridge-smoke.ts <cartella> [lavagna]`: prova il ponte stdio come farebbe Claude Code
-- `pnpm --filter @livingboard/server exec tsx scripts/mcp.ts call <tool> [json|@file]`: client MCP da terminale
-- `pnpm --filter @livingboard/server exec tsx scripts/segment-debug.ts <board> [--svg out.svg]`: segmentazione offline di una lavagna salvata (SVG colorato per gruppo)
+- `pnpm dev`: server (port 3333, tsx watch) + web (Vite, 5180) in parallel
+- `pnpm dev:lan`: same, but reachable from the network (server with `--lan`, Vite with `--host 0.0.0.0`)
+- `pnpm typecheck`: all packages
+- `pnpm smoke`: fake agent that exercises the MCP loop without an LLM
+- `pnpm livingboard install [--lan]` / `uninstall`: stdio MCP server (user scope), `/whiteboard` skill, `UserPromptSubmit` hook
+- `pnpm --filter @livingboard/server exec tsx scripts/bridge-smoke.ts <folder> [board]`: tries the stdio bridge the way Claude Code would. It draws a test table on that board: point it at a throwaway folder, never a real project.
+- `pnpm --filter @livingboard/server exec tsx scripts/mcp.ts call <tool> [json|@file]`: MCP client from the terminal
+- `pnpm --filter @livingboard/server exec tsx scripts/segment-debug.ts <board> [--svg out.svg]`: offline segmentation of a saved board (SVG coloured by group)
 
-## Architettura in breve
+## Architecture in short
 
-- `packages/shared/src/index.ts`: contratto unico. Ogni chiave `DOC.*` è una Y.Map/Y.Array di oggetti JSON sostituiti interi.
-- `packages/server/src/segment.ts`: pre-passaggio geometrico puro (elementi → candidati + link). Nessuna semantica.
-- `packages/server/src/board.ts`: stato per lavagna, maturazione (attenzione), coda per `wait_for_changes`, cursore AI, persistenza.
-- `packages/server/src/mcp.ts`: tool MCP; server stateless, un'istanza per richiesta.
-- `packages/web/src/collab.ts`: binding Excalidraw ↔ Y.Map (vince la `version` più alta) + awareness.
-- `packages/web/src/Overlay.tsx`: lente AI disegnata sopra il canvas in coordinate schermo.
-- `packages/web/src/gestures.ts` + `Dock.tsx`: modalità tablet (dita = navigazione, penna = disegno, tap 2/3 dita = annulla/ripeti).
-- `packages/server/src/registry.ts`: registro viste in `data/views/*.json`, esposto su `/api/views` e via MCP.
-- `packages/server/src/draw.ts`: tutti i disegni dell'agente (forme, note, annotazioni, scene SVG, tabelle, grafici, immagini, `extend`). Decide sempre il *dove*; max 20 parole per elemento.
-- `packages/server/src/svgpath.ts`: SVG → scena (rect, ellipse, line/path con archi, text, frecce da marker, transform dei `<g>`, paint ereditato).
-- `packages/web/src/Messages.tsx`: messaggi di Claude sulla lavagna (fumetti aperti finché letti, segno ✳, casella in alto); "letto" in localStorage per dispositivo.
-- `packages/shared/src/layout.ts`: riordino ad albero condiviso da server (`propose_layout`) e browser (pulsante Riordina).
-- `packages/web/src/Document.tsx`: scheda Documento (sezioni `write_doc` + mappa generata dal grafo).
-- `packages/server/src/cli.ts`: `livingboard mcp` è il ponte stdio che Claude Code avvia nel progetto. Lista dei tool dallo stesso `createMcpServer` in memoria (nessun server serve per vederli); alla prima chiamata avvia il server staccato (`data/server.log`) e inoltra su `/mcp` con l'header `x-livingboard-project` (cartella). Annuncia solo istruzioni brevi (`BRIEF_INSTRUCTIONS`: le paga ogni sessione di ogni progetto); le regole complete (`INSTRUCTIONS`) arrivano in `open_board.rules`. Qui anche `install`/`uninstall`.
-- `packages/server/src/projects.ts`: progetti (id = nome cartella + hash del percorso, in `data/projects.json`) e chiavi delle lavagne: `main` (globale) o `<id>:<nome>` (file in `<progetto>/.livingboard/boards/`). `Board.name` è la chiave (websocket, render), `Board.label` il nome per persone e agente.
-- `packages/server/bin/livingboard-hook.mjs`: hook `UserPromptSubmit`, JavaScript semplice senza dipendenze (gira a ogni prompt in ogni progetto); chiede `/api/digest`, che conta le novità con `Board.pending()` senza consumarle e non ripete la stessa novità nella stessa sessione.
-- `packages/server/src/image.ts`: caricamento immagini per `add_image` (riconoscimento dai byte, dimensioni dall'header, id = sha1 come Excalidraw).
+- `packages/shared/src/index.ts`: the single contract. Every `DOC.*` key is a Y.Map/Y.Array of JSON objects replaced whole.
+- `packages/server/src/segment.ts`: pure geometric pre-pass (elements → candidates + links). No semantics.
+- `packages/server/src/board.ts`: per-board state, maturation (attention), queue for `wait_for_changes`, AI cursor, persistence.
+- `packages/server/src/mcp.ts`: MCP tools; stateless server, one instance per request.
+- `packages/web/src/collab.ts`: Excalidraw ↔ Y.Map binding (highest `version` wins) + awareness.
+- `packages/web/src/Overlay.tsx`: AI lens drawn over the canvas in screen coordinates.
+- `packages/web/src/gestures.ts` + `Dock.tsx`: tablet mode (fingers = navigation, pen = drawing, 2/3-finger tap = undo/redo).
+- `packages/server/src/registry.ts`: view registry in `data/views/*.json`, exposed on `/api/views` and via MCP.
+- `packages/server/src/draw.ts`: all of the agent's drawings (shapes, notes, annotations, SVG scenes, tables, charts, images, `extend`). It always decides the *where*; at most 20 words per element.
+- `packages/server/src/svgpath.ts`: SVG → scene (rect, ellipse, line/path with arcs, text, arrows from markers, `<g>` transforms, inherited paint).
+- `packages/web/src/Messages.tsx`: Claude's messages on the board (bubbles open until read, ✳ mark, inbox at the top); "read" stored per device in localStorage.
+- `packages/shared/src/layout.ts`: tree layout shared by the server (`propose_layout`) and the browser (tidy button).
+- `packages/web/src/Document.tsx`: Document tab (`write_doc` sections + map generated from the graph).
+- `packages/server/src/cli.ts`: `livingboard mcp` is the stdio bridge Claude Code starts in the project. Tool list from the same `createMcpServer` in memory (no server needed to list them); on the first call it starts the server detached (`data/server.log`) and forwards to `/mcp` with the `x-livingboard-project` header (the folder). It announces only short instructions (`BRIEF_INSTRUCTIONS`: every session of every project pays for them); the full rules (`INSTRUCTIONS`) come back in `open_board.rules`. `install`/`uninstall` live here too.
+- `packages/server/src/projects.ts`: projects (id = folder name + path hash, in `data/projects.json`) and board keys: `main` (global) or `<id>:<name>` (file in `<project>/.livingboard/boards/`). `Board.name` is the key (websocket, render), `Board.label` the name for people and the agent.
+- `packages/server/bin/livingboard-hook.mjs`: `UserPromptSubmit` hook, plain JavaScript without dependencies (runs on every prompt in every project); asks `/api/digest`, which counts changes with `Board.pending()` without consuming them and never repeats the same change in the same session.
+- `packages/server/src/image.ts`: image loading for `add_image` (format from the bytes, size from the header, id = sha1 like Excalidraw).
 
-## Insidie note
+## Known pitfalls
 
-- Variabili d'ambiente del server: `LIVINGBOARD_PORT` / `LIVINGBOARD_HOST` (non `PORT`: i launcher la impostano per Vite). `LIVINGBOARD_PROJECT` forza la cartella del progetto per ponte e hook; `LIVINGBOARD_WEB_URL` l'indirizzo della pagina.
-- `pnpm dev` passa `--dev` al server: `open_board` punta a Vite (5180) invece che alla build (3333). Se il ponte ha già avviato il server, `pnpm dev` trova la porta 3333 occupata: chiudi quel processo prima.
-- Il ponte stdio non deve scrivere su stdout (è il canale MCP): log solo su stderr.
-- Sync Yjs scritto a mano in `yserver.ts`: `@y/websocket-server` richiede yjs 14.
-- Excalidraw colora i cursori remoti con un hash dell'`id`: "claude-52" dà l'arancione dell'AI.
-- `excalidrawAPI` viene chiamato nel costruttore di Excalidraw: salvarlo con `queueMicrotask`.
-- Testo libero vicino al centro di una freccia = etichetta della freccia (altrimenti un box lo ingloba e la freccia perde un estremo).
-- Tratti a mano: i "fili" (tratti lunghi e diritti, o lunghi e sciolti ma non chiusi) restano fuori dal clustering e poi diventano link, decorazioni o unioni (`runsAlong`). Le soglie sono in testa a `segment.ts`: ritarale con `segment-debug.ts` su un disegno vero prima di cambiarle.
-- Gruppi espliciti (`DOC.groups`, umani o AI) = must-link + cannot-link nel union-find; un elemento sta in un solo gruppo.
-- Un ID di candidato si riusa solo se la nuova versione contiene almeno metà degli elementi: dopo una divisione ogni parte è nuova e l'interpretazione vecchia viene scartata.
-- MCP: si usa `WebStandardStreamableHTTPServerTransport` con piping manuale; il wrapper Node dell'SDK corrompeva il chunked encoding.
-- Excalidraw, una volta montato, resetta la scena con `initialData`: la lavagna si carica passando gli elementi della prima sync Yjs come `initialData`, non con `updateScene`.
-- Un indice frazionario malformato blocca il caricamento di tutti i client: `collab.ts` e `draw.ts` scartano gli indici non validi.
-- Testi tagliati: un testo misurato prima che Excalifont sia caricato tiene la larghezza del font sostitutivo e il canvas lo taglia (Safari non carica i font da solo per il canvas). `collab.ts` (`fitText`) carica i glifi dei testi arrivati dal server e li rimisura in locale, senza cambiare `version`.
-- Niente indicatori animati per elemento sul canvas (scelta dell'utente): lo stato dell'AI va nel pannello.
-- In dev `window.__excalidraw` e `window.__collab` sono esposti per il debug.
-- Nessuna logica di dominio nel nucleo (server, web, shared): niente Minecraft o simili. Il dominio sta nell'agente e nella sua cartella; `demo/` è solo un esempio d'uso.
-- Immagini: i dati stanno in `DOC.files` (fileId → BinaryFileData), gli elementi portano solo il `fileId`. Il browser condivide solo i file usati da immagini vive (Excalidraw tiene in memoria anche quelli vecchi); il server cancella il file sostituito da `replace` e all'avvio quelli che nessun elemento usa.
-- `add_image` con `path` funziona solo per client MCP in loopback (`createMcpServer({ local })`): in `--lan` l'endpoint MCP è raggiungibile dalla rete.
-- Mermaid → Excalidraw gira nel browser (`rpc.ts`, import dinamico di `@excalidraw/mermaid-to-excalidraw`): `draw_diagram` richiede una lavagna aperta, come `get_board_image`.
-- I disegni AI legati a un nodo hanno `customData.livingboard.nodeId`: seguono il nodo nel riordino e ne allargano l'ingombro (`footprint`).
-- L'hash di un candidato è sul *contenuto* degli elementi, non sulla posizione: spostare non fa rileggere nulla (`HASH_VERSION` in `board.ts` migra le lavagne vecchie).
-- Piazzamento (`Drawer.place`): candidati su una griglia allineata all'ancora, tutto attorno; vince il più economico libero: vicinanza + crescita del perimetro della lavagna + distanza dalla forma schermo (contro le strisce) + lieve preferenza destra/sotto; le parti di una chiamata senza `near` restano un gruppo compatto. Senza ancora il riferimento è `focus()`: gli ultimi elementi umani toccati (`updated`). Le note vanno nel posto libero più vicino al nodo, non più nel margine.
-- Disposizione dei disegni AI (`draw.ts`): le frecce esistenti sono percorsi (`lines`), non rettangoli; `extend` valuta ventaglio/pettine a più distanze con un punteggio (sovrapposizioni, frecce sul testo, incroci, distanza) e tiene frecce dritte o ad angolo; `route()` (frecce di `draw`) prova dritta, curva, angolo.
-- Lavagna pulita di default: lente spenta (`livingboard:lens`), etichetta solo sull'idea selezionata, sulla scheda aperta e sulle proposte in modalità ibrida. Fumetti ed etichette evitano frecce, disegni AI e altri nodi (`cost()` in `Overlay.tsx`).
-- Lente AI accesa: sotto zoom 0.5 solo titoli grandi; etichette delle relazioni da 0.7 in su; viste solo se aperte (locale) o fissate (`pinned`, condiviso).
-- Disegni dell'agente: ogni chiamata di un tool di disegno = un `drawingId` in `customData.livingboard` (con `kind`, `title`, `nodeId`). `replace` cancella il vecchio e (per svg/tabelle/grafici) mette il nuovo al suo posto; `erase` cancella. `board_overview.drawings` li elenca.
-- Modifiche umane ai disegni dell'agente: `board.ts` confronta il contenuto (testi, parti, immagini) a riposo; spostare non conta. Arrivano in `wait_for_changes.drawingEdits` con `added`/`removed`. Le scritture del server (origin `SERVER`) aggiornano solo la base di confronto.
-- Permessi disegnati (`DOC.approvals`): una richiesta ricorda gli id delle due caselle e le legge dov'è ora (si può spostare). Segno = elemento umano piccolo con il centro sulla casella (allargata del 40%), fermo da 700ms; vince il più recente. I segni non entrano nella segmentazione (`approvalMarkIds`) e la risposta arriva una volta sola in `approvals` (un ripensamento conta di nuovo).
-- `delete_text`: il testo AI va libero; quello umano solo con `approvalId` a Sì, e se la richiesta ha `about` solo dentro quegli elementi. `match` ignora i testi delle richieste di permesso (citano il testo da cancellare).
-- Rinomina da Sinapsi (2026-10-20): restano compatibilità minime. `.sinapsi/` nei progetti viene spostata in `.livingboard/` alla prima registrazione (`boardsDir`); `customData.sinapsi` diventa `customData.livingboard` al caricamento della lavagna (`migrateLegacyData`); il browser sposta le chiavi `sinapsi:*` di localStorage (`legacy.ts`); le viste salvate trovano ancora `window.sinapsi`.
-- Nel pannello browser in background `requestAnimationFrame` non gira: il viewport dell'overlay resta vecchio finché la scheda non è visibile (falso negativo nei test).
+- Server environment variables: `LIVINGBOARD_PORT` / `LIVINGBOARD_HOST` (not `PORT`: launchers set it for Vite). `LIVINGBOARD_PROJECT` forces the project folder for bridge and hook; `LIVINGBOARD_WEB_URL` the page address.
+- `pnpm dev` passes `--dev` to the server: `open_board` points to Vite (5180) instead of the build (3333). If the bridge already started the server, `pnpm dev` finds port 3333 busy: close that process first.
+- The stdio bridge must not write to stdout (it is the MCP channel): logs go to stderr only.
+- Hand-written Yjs sync in `yserver.ts`: `@y/websocket-server` requires yjs 14.
+- Excalidraw colours remote cursors from a hash of the `id`: "claude-52" gives the AI orange.
+- `excalidrawAPI` is called inside Excalidraw's constructor: store it with `queueMicrotask`.
+- Free text near the middle of an arrow = the arrow's label (otherwise a box swallows it and the arrow loses an end).
+- Hand strokes: "wires" (long straight strokes, or long loose ones that are not closed) stay out of clustering and later become links, decorations or merges (`runsAlong`). The thresholds are at the top of `segment.ts`: retune them with `segment-debug.ts` on a real drawing before changing them.
+- Explicit groups (`DOC.groups`, human or AI) = must-link + cannot-link in the union-find; an element belongs to one group only.
+- A candidate ID is reused only if the new version contains at least half of the elements: after a split every part is new and the old interpretation is dropped.
+- MCP: `WebStandardStreamableHTTPServerTransport` with manual piping; the SDK's Node wrapper corrupted chunked encoding.
+- Once mounted, Excalidraw resets the scene to `initialData`: the board loads by passing the elements of the first Yjs sync as `initialData`, not with `updateScene`.
+- A malformed fractional index stops every client from loading: `collab.ts` and `draw.ts` drop invalid indices.
+- Clipped text: a text measured before Excalifont is loaded keeps the fallback font's width and the canvas cuts it off (Safari never loads fonts by itself for the canvas). `collab.ts` (`fitText`) loads the glyphs of texts that arrive from the server and re-measures them locally, without changing `version`.
+- No animated per-element indicators on the canvas (the owner's choice): AI status goes in the panel.
+- In dev, `window.__excalidraw` and `window.__collab` are exposed for debugging.
+- No domain logic in the core (server, web, shared): no Minecraft or the like. The domain lives in the agent and its folder; `demo/` is only a usage example.
+- Images: data lives in `DOC.files` (fileId → BinaryFileData), elements only carry the `fileId`. The browser shares only files used by live images (Excalidraw keeps old ones in memory too); the server deletes the file replaced by `replace`, and at startup the ones no element uses.
+- `add_image` with `path` works only for loopback MCP clients (`createMcpServer({ local })`): with `--lan` the MCP endpoint is reachable from the network.
+- Mermaid → Excalidraw runs in the browser (`rpc.ts`, dynamic import of `@excalidraw/mermaid-to-excalidraw`): `draw_diagram` needs an open board, like `get_board_image`.
+- AI drawings tied to a node carry `customData.livingboard.nodeId`: they follow the node when it is rearranged and widen its footprint (`footprint`).
+- A candidate's hash is over the elements' *content*, not their position: moving things does not trigger a re-read (`HASH_VERSION` in `board.ts` migrates old boards).
+- Placement (`Drawer.place`): candidates on a grid aligned to the anchor, all around it; the cheapest free one wins: closeness + growth of the board's perimeter + distance from a screen-shaped board (against strips) + a slight right/below preference; the parts of one call without `near` stay a compact group. Without an anchor the reference is `focus()`: the latest human elements touched (`updated`). Notes go to the free spot closest to the node, no longer in the margin.
+- Layout of AI drawings (`draw.ts`): existing arrows are paths (`lines`), not rectangles; `extend` scores fan/comb layouts at several distances (overlaps, arrows over text, crossings, distance) and keeps arrows straight or elbowed; `route()` (arrows of `draw`) tries straight, curved, elbow.
+- Clean board by default: lens off (`livingboard:lens`), a label only on the selected idea, on the open card and on proposals in hybrid mode. Bubbles and labels avoid arrows, AI drawings and other nodes (`cost()` in `Overlay.tsx`).
+- AI lens on: below zoom 0.5 only big titles; relation labels from 0.7 up; views only when opened (local) or pinned (`pinned`, shared).
+- Agent drawings: every call of a drawing tool = one `drawingId` in `customData.livingboard` (with `kind`, `title`, `nodeId`). `replace` deletes the old one and (for svg/tables/charts) puts the new one in its place; `erase` deletes. `board_overview.drawings` lists them.
+- Human edits to the agent's drawings: `board.ts` compares their content (texts, parts, images) once they settle; moving does not count. They arrive in `wait_for_changes.drawingEdits` with `added`/`removed`. Server writes (origin `SERVER`) only update the comparison base.
+- Drawn permissions (`DOC.approvals`): a request remembers the ids of its two boxes and reads them where they are now (they can be moved). Mark = a small human element whose centre is on the box (grown by 40%), still for 700ms; the latest wins. Marks stay out of segmentation (`approvalMarkIds`) and the answer arrives only once in `approvals` (a change of mind counts again).
+- `delete_text`: AI text goes freely; human text only with an `approvalId` answered Yes, and if the request has `about`, only inside those elements. `match` ignores the texts of permission requests (they quote the text to delete).
+- Rename from Sinapsi (2026-10-20): a little compatibility stays. A project's `.sinapsi/` folder moves to `.livingboard/` the first time it is registered (`boardsDir`); `customData.sinapsi` becomes `customData.livingboard` when a board loads (`migrateLegacyData`); the browser moves `sinapsi:*` localStorage keys (`legacy.ts`); saved views still find `window.sinapsi`.
+- In a background browser pane `requestAnimationFrame` does not run: the overlay viewport stays stale until the tab is visible (false negative in tests).

@@ -1068,8 +1068,8 @@ body {
 }
 
 /* Compact Excalidraw layout puts its own undo/redo in the footer: ours replace them. */
-.excalidraw .App-toolbar-content button[aria-label="Annulla"],
-.excalidraw .App-toolbar-content button[aria-label="Ripeti"] {
+.excalidraw .App-toolbar-content button[aria-label="Undo"],
+.excalidraw .App-toolbar-content button[aria-label="Redo"] {
   display: none !important;
 }
 

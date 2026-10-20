@@ -97,7 +97,7 @@ export class BoardModel {
     if (!n) return;
     this.collab.doc.transact(() => {
       if (!this.ontology.has(type)) {
-        this.ontology.set(type, { name: type, description: "Definito da un umano", color: "#868e96", icon: "✎" });
+        this.ontology.set(type, { name: type, description: "Defined by a human", color: "#868e96", icon: "✎" });
       }
       this.nodes.set(id, { ...n, type, label, status: "confirmed", by: "user", updatedAt: Date.now() });
       this.push({ kind: "retype", nodeId: id, data: { from: { type: n.type, label: n.label }, to: { type, label } } });
@@ -209,7 +209,7 @@ export class BoardModel {
     const fixed = [...nodes.filter((n) => !linked.has(n.id)).map((n) => n.bbox), ...aiDrawings];
     const moves = treeLayout(nodes, edges, fixed);
     if (!moves.length) return false;
-    this.proposal.set("current", { id: uid("lay_"), title: "Riordino", moves, by: "user", at: Date.now() });
+    this.proposal.set("current", { id: uid("lay_"), title: "Tidy-up", moves, by: "user", at: Date.now() });
     return true;
   }
 

@@ -1,34 +1,34 @@
-# Add-on Minecraft Bedrock costruito da una lavagna Livingboard
+# Minecraft Bedrock add-on built from a Livingboard board
 
-Questa cartella è il cantiere: chi disegna sulla lavagna descrive la mod, tu la costruisci qui.
-Il server MCP `livingboard` (vedi `.mcp.json`) ti collega alla lavagna.
+This folder is the workshop: whoever draws on the board describes the mod, you build it here.
+The `livingboard` MCP server (see `.mcp.json`) connects you to the board.
 
-## Avvio
+## Start
 
-Esegui `/mcp__livingboard__start` con goal "costruisci l'add-on Bedrock in questa cartella", poi resta nel ciclo
-`wait_for_changes → interpret → costruisci → set_status → wait_for_changes`. Le domande per gli umani vanno
-sulla lavagna con `comment`, non in chat.
+Run `/mcp__livingboard__start` with goal "build the Bedrock add-on in this folder", then stay in the loop
+`wait_for_changes → interpret → build → set_status → wait_for_changes`. Questions for people go
+on the board with `comment`, not in the chat.
 
-## Dal grafo ai file
+## From the graph to files
 
-| Tipo sulla lavagna | File |
+| Type on the board | Files |
 |---|---|
-| mob | `*_BP/entities/<nome>.json`, `*_BP/loot_tables/entities/<nome>.json`, `*_RP/entity/<nome>.entity.json` |
-| item / arma / materiale | `*_BP/items/<nome>.json` + voce in `*_RP/textures/item_texture.json` |
-| ricetta (anche dentro le props di un item) | `*_BP/recipes/<nome>.json` |
-| bioma collegato con "spawna in" | `*_BP/spawn_rules/<mob>.json` (filtro sui biome tag) |
-| relazione "drops" | pool nella loot table del mob di partenza |
+| mob | `*_BP/entities/<name>.json`, `*_BP/loot_tables/entities/<name>.json`, `*_RP/entity/<name>.entity.json` |
+| item / weapon / material | `*_BP/items/<name>.json` + entry in `*_RP/textures/item_texture.json` |
+| recipe (also inside an item's props) | `*_BP/recipes/<name>.json` |
+| biome linked with "spawns in" | `*_BP/spawn_rules/<mob>.json` (biome tag filter) |
+| "drops" relation | pool in the source mob's loot table |
 
-- Namespace `livingboard:`; usa `props.identifier` del nodo quando c'è.
-- Nomi tradotti in `*_RP/texts/en_US.lang` e `it_IT.lang`.
-- Grafica mancante: usa modelli e texture vanilla come segnaposto e scrivilo nelle `assumptions`.
-- Prima di lavorare su un nodo `set_status(building)`, dopo `set_status(done, files)` con percorsi relativi
-  alla radice del repo (es. `demo/minecraft-pack/frost_golem_BP/items/frost_sword.json`).
-- Sulla lavagna disegna, non scrivere: `extend` per aggiungere mob/item allo schema, `draw_svg` per far vedere un oggetto, `draw_table` per statistiche, drop e ricette, `annotate` per segnalare problemi. Quando cambiano, aggiorna i disegni con `replace`.
-- Feedback `view-edit`: l'utente ha modificato le props da una vista interattiva → riallinea i file.
-- Feedback `retype` o `reject`: l'umano ha corretto la tua lettura → adegua o ripulisci.
+- Namespace `livingboard:`; use the node's `props.identifier` when present.
+- Translated names in `*_RP/texts/en_US.lang` and `it_IT.lang`.
+- Missing art: use vanilla models and textures as placeholders and say so in the `assumptions`.
+- Before working on a node `set_status(building)`, afterwards `set_status(done, files)` with paths relative
+  to the repo root (e.g. `demo/minecraft-pack/frost_golem_BP/items/frost_sword.json`).
+- On the board, draw rather than write: `extend` to add mobs/items to the diagram, `draw_svg` to show an object, `draw_table` for stats, drops and recipes, `annotate` to flag problems. When they change, update the drawings with `replace`.
+- `view-edit` feedback: the user changed props from an interactive view → bring the files in line.
+- `retype` or `reject` feedback: a person corrected your reading → adapt or clean up.
 
-## Provare in Minecraft
+## Trying it in Minecraft
 
-Copia (o collega con un link simbolico) `frost_golem_BP` in `development_behavior_packs` e `frost_golem_RP`
-in `development_resource_packs` della cartella `com.mojang`, attivali in un mondo di prova, poi `/reload`.
+Copy (or symlink) `frost_golem_BP` into `development_behavior_packs` and `frost_golem_RP`
+into `development_resource_packs` of the `com.mojang` folder, enable them in a test world, then `/reload`.

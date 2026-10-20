@@ -31,9 +31,9 @@ const STROKES = new Set(["freedraw", "line"]);
 const FRAMES = new Set(["frame", "magicframe"]);
 
 const SHAPE_NAMES: Record<string, string> = {
-  rectangle: "rettangolo",
-  ellipse: "ellisse",
-  diamond: "rombo",
+  rectangle: "rectangle",
+  ellipse: "ellipse",
+  diamond: "diamond",
   embeddable: "embed",
   iframe: "iframe",
 };
@@ -576,7 +576,7 @@ export function segment(
         anchor: a.id,
         bbox: boxes.get(a.id)!,
         texts: label ? [label] : [],
-        summary: label ? `freccia «${clip(label, 60)}»` : "freccia",
+        summary: label ? `arrow “${clip(label, 60)}”` : "arrow",
         needsVision: false,
         fromRoot,
         toRoot,
@@ -618,7 +618,7 @@ export function segment(
       anchor: l.wire.id,
       bbox: unionBBox(ids.map((id) => boxes.get(id)!)),
       texts: label ? [label] : [],
-      summary: label ? `freccia disegnata «${clip(label, 60)}»` : "freccia disegnata",
+      summary: label ? `drawn arrow “${clip(label, 60)}”` : "drawn arrow",
       needsVision: false,
       fromRoot: from,
       toRoot: to,
@@ -652,15 +652,15 @@ export function segment(
     else if (strokeCount > 0) kind = "sketch";
     else kind = texts.some((t) => QUESTION_RE.test(t)) ? "question" : "text";
 
-    const quoted = texts.length ? ` «${clip(texts.join(" / "))}»` : "";
+    const quoted = texts.length ? ` “${clip(texts.join(" / "))}”` : "";
     let summary: string;
     if (kind === "shape") {
       const names = [...new Set(shapeEls.map((s) => SHAPE_NAMES[s.type] ?? s.type))].join(" + ");
-      summary = `${names}${quoted}${strokeCount ? ` + schizzo (${strokeCount} tratti)` : ""}`;
-    } else if (kind === "sketch") summary = `schizzo a mano libera (${strokeCount} tratti)${quoted}`;
-    else if (kind === "image") summary = `immagine${quoted}`;
-    else if (kind === "question") summary = `domanda${quoted}`;
-    else summary = `testo${quoted}`;
+      summary = `${names}${quoted}${strokeCount ? ` + sketch (${strokeCount} strokes)` : ""}`;
+    } else if (kind === "sketch") summary = `freehand sketch (${strokeCount} strokes)${quoted}`;
+    else if (kind === "image") summary = `image${quoted}`;
+    else if (kind === "question") summary = `question${quoted}`;
+    else summary = `text${quoted}`;
 
     const anchor =
       [...shapeEls].sort((p, q) => area(boxes.get(q.id)!) - area(boxes.get(p.id)!))[0]?.id ?? [...ids].sort()[0];
@@ -685,7 +685,7 @@ export function segment(
       anchor: f.id,
       bbox: boxes.get(f.id)!,
       texts: name ? [name] : [],
-      summary: name ? `riquadro «${clip(name, 60)}»` : "riquadro",
+      summary: name ? `frame “${clip(name, 60)}”` : "frame",
       needsVision: false,
     });
   }

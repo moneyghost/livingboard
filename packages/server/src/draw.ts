@@ -41,7 +41,7 @@ const HEX = /^#[0-9a-f]{3,8}$/i;
 export function checkWords(text: string | undefined, max = MAX_WORDS) {
   if (text && words(text) > max) {
     throw new Error(
-      `Troppo testo in un elemento (${words(text)} parole, max ${max}). Spezzalo: una tabella (draw_table), più elementi, un disegno (draw_svg); le spiegazioni lunghe vanno nel Documento (write_doc).`,
+      `Too much text in one element (${words(text)} words, max ${max}). Break it up: a table (draw_table), several elements, a drawing (draw_svg); long explanations go in the Document (write_doc).`,
     );
   }
 }
@@ -480,7 +480,7 @@ export class Drawer {
     if (item.type === "arrow") {
       const a = this.ref(item.from);
       const b = this.ref(item.to);
-      if (!a || !b) throw new Error(`Freccia: estremi non trovati (${item.from} → ${item.to})`);
+      if (!a || !b) throw new Error(`Arrow: ends not found (${item.from} → ${item.to})`);
       this.arrowBetween(a, b, color, item.text);
       this.refs.push(unionOf(a, b));
       return;
@@ -515,7 +515,7 @@ export class Drawer {
 
   /**
    * A question people answer by ticking a box: the question on top, then
-   * "☐ Sì   ☐ No" (empty boxes to mark with the pen), in a dashed card, grouped.
+   * "☐ Yes   ☐ No" (empty boxes to mark with the pen), in a dashed card, grouped.
    * Returns the ids of the two boxes.
    */
   permission(question: string, anchor?: BBox): { yesBox: string; noBox: string } {
@@ -524,8 +524,8 @@ export class Drawer {
     const q = wrap(question, 30);
     const qm = measure(q);
     const BOX = 40;
-    const lm = measure("No");
-    const optW = BOX + 12 + lm.w + 10;
+    const labels = ["Yes", "No"];
+    const optW = BOX + 12 + Math.max(...labels.map((l) => measure(l).w)) + 10;
     const pad = 22;
     const w = Math.max(qm.w, optW * 2 + 50) + pad * 2;
     const h = pad + qm.h + 22 + BOX + pad;
@@ -536,7 +536,7 @@ export class Drawer {
     push(this.text(q, { x: card.x + pad, y: card.y + pad, ...qm }, color, null));
     const y = card.y + pad + qm.h + 22;
     const boxes: string[] = [];
-    ["Sì", "No"].forEach((label, i) => {
+    labels.forEach((label, i) => {
       const x = card.x + pad + i * (optW + 50);
       const box = this.base("rectangle", { x, y, w: BOX, h: BOX }, color, { roundness: null, strokeWidth: 2 });
       push(box);
@@ -644,7 +644,7 @@ export class Drawer {
         break;
       }
       case "callout":
-        if (!text) throw new Error("Un richiamo ha bisogno di un testo breve.");
+        if (!text) throw new Error("A callout needs a short text.");
         this.note(anchor, text, true);
         return;
     }
@@ -661,8 +661,8 @@ export class Drawer {
    */
   scene(scene: Scene, opts: { anchor?: BBox; at?: { x: number; y: number }; size?: number; label?: string }) {
     const { items } = scene;
-    if (!items.length) throw new Error("L'SVG non contiene niente da disegnare: usa rect, circle, ellipse, line, polyline, polygon, path, text.");
-    if (items.length > 400) throw new Error(`SVG troppo complesso (${items.length} elementi, max 400): semplifica.`);
+    if (!items.length) throw new Error("The SVG has nothing to draw: use rect, circle, ellipse, line, polyline, polygon, path, text.");
+    if (items.length > 400) throw new Error(`SVG too complex (${items.length} elements, max 400): simplify it.`);
     for (const it of items) if (it.kind === "text") checkWords(it.text, 25);
     checkWords(opts.label);
     const vb = scene.viewBox ?? sceneBounds(items);
@@ -770,9 +770,9 @@ export class Drawer {
     rows: string[][],
     opts: { anchor?: BBox; at?: { x: number; y: number }; title?: string; header?: boolean; highlight?: { row: number; col: number; color?: string }[] },
   ) {
-    if (!rows.length || rows.length > 20) throw new Error("La tabella vuole da 1 a 20 righe.");
+    if (!rows.length || rows.length > 20) throw new Error("A table takes 1 to 20 rows.");
     const cols = Math.max(...rows.map((r) => r.length));
-    if (cols < 1 || cols > 8) throw new Error("La tabella vuole da 1 a 8 colonne.");
+    if (cols < 1 || cols > 8) throw new Error("A table takes 1 to 8 columns.");
     for (const r of rows) for (const c of r) checkWords(c, 12);
     checkWords(opts.title);
     const FS = 16;
@@ -867,7 +867,7 @@ export class Drawer {
 
   /** A tiny bar chart: the visual answer to "how much / how many". */
   chart(data: { label: string; value: number }[], opts: { anchor?: BBox; title?: string }) {
-    if (!data.length || data.length > 8) throw new Error("Il grafico vuole da 1 a 8 valori.");
+    if (!data.length || data.length > 8) throw new Error("A chart takes 1 to 8 values.");
     checkWords(opts.title, 8);
     const c = this.color;
     const W = Math.max(200, data.length * 56);
@@ -926,7 +926,7 @@ export class Drawer {
     dir: Direction,
     opts: { color: string; fontSize: number; boxes: boolean },
   ) {
-    if (!children.length || children.length > 8) throw new Error("Da 1 a 8 figli per volta.");
+    if (!children.length || children.length > 8) throw new Error("1 to 8 children at a time.");
     for (const ch of children) checkWords(ch.label, 6);
     const sizes = children.map((ch) => {
       const t = wrap(ch.label, 18);

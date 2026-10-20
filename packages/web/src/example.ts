@@ -72,7 +72,7 @@ export function buildExample(origin: { x: number; y: number }, lastIndex: string
       height: 110,
       backgroundColor: "#a5d8ff",
       fillStyle: "hachure",
-      label: { text: "App: Meteo in bici\nsolo il tuo percorso" },
+      label: { text: "App: Bike weather\njust your route" },
     },
     {
       type: "ellipse",
@@ -82,7 +82,7 @@ export function buildExample(origin: { x: number; y: number }, lastIndex: string
       height: 90,
       backgroundColor: "#d0bfff",
       fillStyle: "hachure",
-      label: { text: "Avviso pioggia" },
+      label: { text: "Rain alert" },
     },
     {
       type: "diamond",
@@ -92,12 +92,12 @@ export function buildExample(origin: { x: number; y: number }, lastIndex: string
       height: 130,
       backgroundColor: "#b2f2bb",
       fillStyle: "hachure",
-      label: { text: "Dati\nprevisioni orarie" },
+      label: { text: "Data\nhourly forecast" },
     },
-    { type: "arrow", ...o(245, 40), width: 190, height: -70, start: { id: "app" }, end: { id: "alert" }, label: { text: "manda" } },
-    { type: "arrow", ...o(245, 80), width: 190, height: 110, start: { id: "app" }, end: { id: "data" }, label: { text: "usa" } },
-    { type: "text", ...o(130, 215), text: "icona: ombrello\nche si apre", fontSize: 16 },
-    { type: "text", ...o(0, 380), text: "@AI quanto prima conviene avvisare?", fontSize: 20 },
+    { type: "arrow", ...o(245, 40), width: 190, height: -70, start: { id: "app" }, end: { id: "alert" }, label: { text: "sends" } },
+    { type: "arrow", ...o(245, 80), width: 190, height: 110, start: { id: "app" }, end: { id: "data" }, label: { text: "uses" } },
+    { type: "text", ...o(130, 215), text: "icon: umbrella\nthat opens", fontSize: 16 },
+    { type: "text", ...o(0, 380), text: "@AI how early should it warn?", fontSize: 20 },
   ] as unknown as ExcalidrawElementSkeleton[];
 
   const shapes = convertToExcalidrawElements(skeleton, { regenerateIds: true });

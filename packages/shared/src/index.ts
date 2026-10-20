@@ -34,7 +34,7 @@ export const DOC = {
   proposal: "proposal",
   /** Image data for Excalidraw image elements, keyed by fileId (Excalidraw's BinaryFileData). */
   files: "files",
-  /** Permission requests the agent drew (a question with Sì/No boxes people tick). */
+  /** Permission requests the agent drew (a question with Yes/No boxes people tick). */
   approvals: "approvals",
 } as const;
 
@@ -274,7 +274,7 @@ export function slugify(s: string): string {
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "")
-      .slice(0, 48) || "vista"
+      .slice(0, 48) || "view"
   );
 }
 

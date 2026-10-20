@@ -174,7 +174,7 @@ export default function App() {
             collab.pointer(pointer.x, pointer.y, pointer.tool, button);
           }}
           isCollaborating
-          langCode="it-IT"
+          langCode="en"
           name={projectName ? `${projectName} · ${board}` : `Livingboard · ${board}`}
           UIOptions={{ canvasActions: { loadScene: false, saveToActiveFile: false } }}
         >
@@ -184,10 +184,10 @@ export default function App() {
                 <span className="welcome-logo">✳ Livingboard</span>
               </WelcomeScreen.Center.Logo>
               <WelcomeScreen.Center.Heading>
-                Disegna un'idea. Claude la legge mentre disegni.
+                Draw an idea. Claude reads it as you draw.
               </WelcomeScreen.Center.Heading>
               <WelcomeScreen.Center.Menu>
-                <WelcomeScreen.Center.MenuItem onSelect={loadExample}>Carica l'esempio: app meteo</WelcomeScreen.Center.MenuItem>
+                <WelcomeScreen.Center.MenuItem onSelect={loadExample}>Load the example: weather app</WelcomeScreen.Center.MenuItem>
               </WelcomeScreen.Center.Menu>
             </WelcomeScreen.Center>
             <WelcomeScreen.Hints.ToolbarHint />

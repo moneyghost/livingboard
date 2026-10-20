@@ -21,9 +21,9 @@ function shortcut(redo: boolean) {
 }
 
 export function undo() {
-  if (!press("undo-button-container", ["Annulla", "Undo"])) shortcut(false);
+  if (!press("undo-button-container", ["Undo"])) shortcut(false);
 }
 
 export function redo() {
-  if (!press("redo-button-container", ["Ripeti", "Redo"])) shortcut(true);
+  if (!press("redo-button-container", ["Redo"])) shortcut(true);
 }

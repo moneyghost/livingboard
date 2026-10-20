@@ -77,7 +77,7 @@ export function bubbleHeight(t: Thread, expanded: boolean) {
   return Math.min(320, 64 + lines * 19);
 }
 
-const KIND: Record<Comment["kind"], string> = { answer: "Risposta", question: "Domanda", note: "Nota", reply: "" };
+const KIND: Record<Comment["kind"], string> = { answer: "Answer", question: "Question", note: "Note", reply: "" };
 
 /**
  * A message from Claude, open on the board next to what it is about, until
@@ -112,10 +112,10 @@ export function Bubble(props: {
     >
       <div className="msg-head">
         <span>
-          ✳ Claude{thread.asking ? " · ti chiede" : thread.lastAi && KIND[thread.lastAi.kind] ? ` · ${KIND[thread.lastAi.kind]}` : ""}
+          ✳ Claude{thread.asking ? " · asks you" : thread.lastAi && KIND[thread.lastAi.kind] ? ` · ${KIND[thread.lastAi.kind]}` : ""}
         </span>
         {expanded && (
-          <button type="button" className="msg-x" onClick={onCollapse} aria-label="Chiudi">
+          <button type="button" className="msg-x" onClick={onCollapse} aria-label="Close">
             ×
           </button>
         )}
@@ -136,15 +136,15 @@ export function Bubble(props: {
             send();
           }}
         >
-          <input autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder="Rispondi a Claude…" />
+          <input autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder="Reply to Claude…" />
           <button type="submit" className="btn ok" disabled={!text.trim()}>
-            Invia
+            Send
           </button>
         </form>
       ) : (
         <div className="msg-actions">
           <button type="button" className="btn ghost" onClick={() => setReplying(true)}>
-            Rispondi
+            Reply
           </button>
           {!expanded && (
             <button type="button" className="btn ok" onClick={onRead}>
@@ -182,7 +182,7 @@ export function Inbox(props: { threads: Thread[]; model: BoardModel; onGo: (anch
   return (
     <div className="msg-inbox" onPointerDown={(e) => e.stopPropagation()} onWheel={(e) => e.stopPropagation()}>
       <button type="button" className="msg-inbox-head" onClick={() => setOpen(!open)}>
-        ✳ {count === 1 ? "1 messaggio di Claude" : `${count} messaggi di Claude`} {open ? "▴" : "▾"}
+        ✳ {count === 1 ? "1 message from Claude" : `${count} messages from Claude`} {open ? "▴" : "▾"}
       </button>
       {open &&
         threads.map((t) => {
@@ -202,20 +202,20 @@ export function Inbox(props: { threads: Thread[]; model: BoardModel; onGo: (anch
                     onRead(t);
                   }}
                 >
-                  <input autoFocus value={reply.text} onChange={(e) => setReply({ key, text: e.target.value })} placeholder="Rispondi a Claude…" />
+                  <input autoFocus value={reply.text} onChange={(e) => setReply({ key, text: e.target.value })} placeholder="Reply to Claude…" />
                   <button type="submit" className="btn ok">
-                    Invia
+                    Send
                   </button>
                 </form>
               ) : (
                 <div className="msg-actions">
                   {t.anchor && (
                     <button type="button" className="btn ghost" onClick={() => onGo(t.anchor!)}>
-                      Vai lì
+                      Go there
                     </button>
                   )}
                   <button type="button" className="btn ghost" onClick={() => setReply({ key, text: "" })}>
-                    Rispondi
+                    Reply
                   </button>
                   <button type="button" className="btn ok" onClick={() => onRead(t)}>
                     Ok

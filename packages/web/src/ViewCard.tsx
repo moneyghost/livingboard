@@ -57,7 +57,7 @@ function SaveForm({ view, node, author, onDone, onCancel }: {
   onCancel: () => void;
 }) {
   const [title, setTitle] = useState(view.title.replace(/\s*·.*$/, ""));
-  const [description, setDescription] = useState(`Vista per nodi di tipo ${node.type}`);
+  const [description, setDescription] = useState(`View for nodes of type ${node.type}`);
   const [required, setRequired] = useState(guessRequired(view.html, node.props).join(", "));
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -88,26 +88,26 @@ function SaveForm({ view, node, author, onDone, onCancel }: {
         }
       }}
     >
-      <strong>{view.source ? "Aggiorna nel registro" : "Salva nel registro"}</strong>
+      <strong>{view.source ? "Update in the registry" : "Save to the registry"}</strong>
       <label>
-        Nome
+        Name
         <input value={title} onChange={(e) => setTitle(e.target.value)} required />
       </label>
       <label>
-        Quando usarla
+        When to use it
         <input value={description} onChange={(e) => setDescription(e.target.value)} />
       </label>
       <label>
-        Props richieste <small className="muted">(separate da virgola)</small>
-        <input value={required} onChange={(e) => setRequired(e.target.value)} placeholder="es. price.amount" />
+        Required props <small className="muted">(comma-separated)</small>
+        <input value={required} onChange={(e) => setRequired(e.target.value)} placeholder="e.g. price.amount" />
       </label>
       {error && <p className="form-error">{error}</p>}
       <div className="row">
         <button type="submit" className="btn ok" disabled={busy}>
-          {busy ? "Salvo…" : "Salva"}
+          {busy ? "Saving…" : "Save"}
         </button>
         <button type="button" className="btn ghost" onClick={onCancel}>
-          Annulla
+          Cancel
         </button>
       </div>
     </form>
@@ -181,7 +181,7 @@ export function ViewCard({ view, node, color, left, top, zoom, offset, onEdit, o
         onPointerMove={moveDrag}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
-        title="Trascina per spostare"
+        title="Drag to move"
       >
         <span>✳ {view.title}</span>
         <span className="view-actions">
@@ -189,7 +189,7 @@ export function ViewCard({ view, node, color, left, top, zoom, offset, onEdit, o
             type="button"
             className={`save ${view.pinned ? "saved" : ""}`}
             onClick={onPin}
-            title={view.pinned ? "Fissata: aperta per tutti. Tocca per aprirla solo su richiesta" : "Fissa: aperta per tutti"}
+            title={view.pinned ? "Pinned: open for everyone. Tap to open it only on request" : "Pin: open for everyone"}
           >
             📌
           </button>
@@ -197,11 +197,11 @@ export function ViewCard({ view, node, color, left, top, zoom, offset, onEdit, o
             type="button"
             className={`save ${view.source ? "saved" : ""}`}
             onClick={() => setSaving(!saving)}
-            title={view.source ? `Nel registro come «${view.source}»: tocca per aggiornare` : "Salva nel registro per riusarla"}
+            title={view.source ? `In the registry as “${view.source}”: tap to update` : "Save to the registry to reuse it"}
           >
             {view.source ? "★" : "☆"}
           </button>
-          <button type="button" onClick={onClose} title="Nascondi vista">
+          <button type="button" onClick={onClose} title="Hide view">
             ×
           </button>
         </span>

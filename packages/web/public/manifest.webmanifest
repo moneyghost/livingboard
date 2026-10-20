@@ -1,7 +1,7 @@
 {
   "name": "Livingboard",
   "short_name": "Livingboard",
-  "description": "Lavagna collaborativa che l'AI capisce mentre disegni",
+  "description": "Collaborative whiteboard that AI understands while you draw",
   "start_url": "/",
   "display": "standalone",
   "orientation": "any",

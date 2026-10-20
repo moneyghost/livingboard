@@ -49,16 +49,16 @@ async function main() {
 
   for (const b of digest.boards ?? []) {
     const parts = [
-      b.approvals && plural(b.approvals, "risposta a un tuo permesso", "risposte ai tuoi permessi"),
-      b.ideas && plural(b.ideas, "idea nuova o cambiata", "idee nuove o cambiate"),
-      b.links && plural(b.links, "collegamento", "collegamenti"),
-      b.drawingEdits && plural(b.drawingEdits, "tuo disegno modificato", "tuoi disegni modificati"),
-      b.feedback && plural(b.feedback, "risposta o correzione", "risposte o correzioni"),
-      b.removed && plural(b.removed, "cosa cancellata", "cose cancellate"),
+      b.approvals && plural(b.approvals, "answer to a permission request", "answers to permission requests"),
+      b.ideas && plural(b.ideas, "new or changed idea", "new or changed ideas"),
+      b.links && plural(b.links, "link", "links"),
+      b.drawingEdits && plural(b.drawingEdits, "edit to your drawings", "edits to your drawings"),
+      b.feedback && plural(b.feedback, "reply or correction", "replies or corrections"),
+      b.removed && plural(b.removed, "deleted item", "deleted items"),
     ].filter(Boolean);
     console.log(
-      `Livingboard · novità sulla lavagna "${b.board}" di questo progetto: ${parts.join(", ")}. ` +
-        `Se c'entrano con la richiesta, leggile con wait_for_changes(board: "${b.board}", timeoutSec: 1) prima di rispondere (se in questa sessione non l'hai ancora aperta, prima open_board: ti dà le regole), e tieni lavagna e progetto allineati.`,
+      `Livingboard · changes on this project's board "${b.board}": ${parts.join(", ")}. ` +
+        `If they bear on the request, read them with wait_for_changes(board: "${b.board}", timeoutSec: 1) before answering (if you have not opened it in this session yet, call open_board first: it gives you the rules), and keep board and project in sync.`,
     );
   }
 }

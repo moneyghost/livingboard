@@ -46,7 +46,7 @@ export interface SaveViewInput {
 export async function saveView(input: SaveViewInput): Promise<SavedView> {
   const res = await fetch(BASE, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(input) });
   const body = (await res.json()) as SavedView & { error?: string };
-  if (!res.ok) throw new Error(body.error ?? "Salvataggio non riuscito");
+  if (!res.ok) throw new Error(body.error ?? "Save failed");
   await refreshViews();
   return body;
 }

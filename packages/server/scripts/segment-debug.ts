@@ -25,7 +25,7 @@ const cands = segment(elements, new Map(), Date.now());
 
 const shapes = cands.filter((c) => c.kind !== "link");
 const links = cands.filter((c) => c.kind === "link");
-console.log(`${elements.filter((e) => !e.isDeleted).length} elementi vivi → ${shapes.length} candidati, ${links.length} link\n`);
+console.log(`${elements.filter((e) => !e.isDeleted).length} live elements → ${shapes.length} candidates, ${links.length} links\n`);
 for (const c of shapes.sort((a, b) => a.bbox.y - b.bbox.y || a.bbox.x - b.bbox.x)) {
   const b = c.bbox;
   console.log(`${c.id.padEnd(28)} ${c.kind.padEnd(8)} ${String(c.elementIds.length).padStart(3)} el  @${b.x},${b.y} ${b.w}×${b.h}  ${c.summary.replace(/\n/g, " / ").slice(0, 60)}`);

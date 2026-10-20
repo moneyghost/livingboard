@@ -60,13 +60,13 @@ export function rpcCall<T>(board: string, payload: Record<string, unknown>, time
   const open = (renderers.get(board) ?? []).filter((w) => w.readyState === w.OPEN);
   const ws = open[open.length - 1];
   if (!ws) {
-    return Promise.reject(new Error("Nessun browser ha la lavagna aperta: aprila con open_board (o chiedi all'utente di aprirla) e riprova."));
+    return Promise.reject(new Error("No browser has the board open: open it with open_board (or ask the user to open it) and try again."));
   }
   const id = `r${++seq}`;
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       pending.delete(id);
-      reject(new Error("Il browser non ha risposto in tempo."));
+      reject(new Error("The browser did not answer in time."));
     }, timeoutMs);
     pending.set(id, { resolve: resolve as (r: unknown) => void, reject, timer });
     ws.send(JSON.stringify({ id, ...payload }));

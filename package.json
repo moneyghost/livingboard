@@ -2,7 +2,7 @@
   "name": "livingboard",
   "private": true,
   "version": "0.1.0",
-  "description": "Lavagna collaborativa open source che l'AI capisce, via MCP",
+  "description": "Open-source collaborative whiteboard that AI understands, via MCP",
   "license": "MIT",
   "type": "module",
   "packageManager": "pnpm@12.4.2",

@@ -1,200 +1,202 @@
 # ✳ Livingboard
 
-Lavagna collaborativa open source che fa da **prompt vivo** per un progetto costruito con l'AI.
+Open-source collaborative whiteboard that works as the **living prompt** of a project built with AI.
 
-Con un prompt testuale dai un'istruzione, ricevi un risultato, e dopo un'ora di chat la visione d'insieme è persa nello scroll. In Livingboard il prompt è la lavagna: la disegni, Claude la legge, costruisce, e riporta sulla lavagna quello che ha fatto (schermate, tabelle, schemi, screenshot). Persone e Claude la modificano entrambi, nel tempo, e **lavagna e progetto corrispondono sempre**: cambi una cella della tabella di Claude e Claude cambia il progetto; Claude cambia il progetto e aggiorna il disegno.
+With a text prompt you give an instruction, get a result, and after an hour of chat the big picture is lost in the scroll. In Livingboard the prompt is the board: you draw it, Claude reads it, builds, and puts back on the board what it did (screens, tables, diagrams, screenshots). People and Claude both edit it over time, and **board and project always match**: change a cell in Claude's table and Claude changes the project; Claude changes the project and updates the drawing.
 
-Il collegamento con l'AI passa da **MCP**, quindi funziona con Claude Code o con qualsiasi client MCP.
+The link to the AI goes through **MCP**, so it works with Claude Code or any MCP client.
 
-> Esempio: disegni un'app con riquadri, frecce e uno schizzo. Claude riconosce funzioni e dati, risponde alle domande `@AI` con un messaggio sulla lavagna, disegna accanto la prima schermata e la tabella degli avvisi, costruisce il progetto nella sua cartella e tiene tutto aggiornato.
+> Example: you draw an app with boxes, arrows and a sketch. Claude recognises features and data, answers `@AI` questions with a message on the board, draws the first screen and the alerts table next to it, builds the project in its folder and keeps everything up to date.
 
-**Quando conviene (e quando no).** La lavagna vince quando la posizione è il contenuto (schermate, flussi, mappe, architetture), quando il progetto dura settimane e va capito con un'occhiata, quando si lavora in più persone, quando si confronta o si dà priorità (tabelle, matrici), con penna e tablet. Per bug, refactoring, regole precise e numeri il testo resta più veloce: Livingboard non lo sostituisce, gli dà una mappa.
+**When it pays off (and when it doesn't).** The board wins when position is the content (screens, flows, maps, architectures), when the project lasts weeks and has to be understood at a glance, when several people work on it, when you compare or prioritise (tables, matrices), with pen and tablet. For bugs, refactoring, precise rules and numbers, text is still faster: Livingboard does not replace it, it gives it a map.
 
-Livingboard non sa niente di nessun dominio: niente plugin per giochi, app o documenti. Il dominio lo porta l'agente (e la cartella in cui lavora); la lavagna offre solo strumenti generici per leggere, disegnare e mostrare immagini.
+Livingboard knows nothing about any domain: no plugins for games, apps or documents. The agent brings the domain (and the folder it works in); the board only offers generic tools to read, draw and show images.
 
-## Avvio rapido
+## Quick start
 
-Una volta sola, dalla cartella di Livingboard:
+Once, from the Livingboard folder:
 
 ```bash
 pnpm install
 pnpm livingboard install
 ```
 
-Poi in **qualsiasi progetto**, in una nuova sessione di Claude Code:
+Then in **any project**, in a new Claude Code session:
 
 ```
-/whiteboard          la lavagna "main" del progetto
-/whiteboard ui       un'altra lavagna dello stesso progetto
+/whiteboard          the project's "main" board
+/whiteboard ui       another board of the same project
 ```
 
-Claude apre la lavagna nel browser e ci lavora. Non serve avviare niente a mano: il server parte da solo alla prima chiamata e resta acceso per tutti i progetti. Le lavagne di un progetto si salvano **nel progetto**, in `.livingboard/boards/<nome>.ydoc`, così viaggiano e si versionano con il codice. Per il tablet: `pnpm livingboard install --lan` (il server diventa visibile in rete; `open_board` restituisce anche gli indirizzi per l'iPad).
+Claude opens the board in the browser and works on it. Nothing to start by hand: the server starts by itself on the first call and stays up for all projects. A project's boards are saved **in the project**, in `.livingboard/boards/<name>.ydoc`, so they travel and are versioned with the code. For a tablet: `pnpm livingboard install --lan` (the server becomes reachable on the network; `open_board` also returns the addresses for the iPad).
 
-Cosa installa `pnpm livingboard install` (scope utente, `pnpm livingboard uninstall` lo toglie):
+What `pnpm livingboard install` sets up (user scope; `pnpm livingboard uninstall` removes it):
 
-- il server MCP `livingboard` (un ponte stdio che Claude Code avvia nella cartella del progetto: la cartella decide il progetto). Costa poco nei progetti dove non usi la lavagna: due righe di istruzioni e i nomi dei tool (circa 300 token per sessione con il caricamento dei tool su richiesta); le regole complete arrivano solo con `open_board`;
-- la skill `/whiteboard` in `~/.claude/skills/whiteboard/`;
-- un hook `UserPromptSubmit` in `~/.claude/settings.json`: a ogni messaggio, se sulla lavagna del progetto è cambiato qualcosa dall'ultimo messaggio, Claude lo sa (una riga di contesto, nessuna attesa se il server è spento).
+- the `livingboard` MCP server (a stdio bridge that Claude Code starts in the project folder: the folder decides the project). It costs little in projects where you don't use the board: two lines of instructions and the tool names (about 300 tokens per session with on-demand tool loading); the full rules arrive only with `open_board`;
+- the `/whiteboard` skill in `~/.claude/skills/whiteboard/`;
+- a `UserPromptSubmit` hook in `~/.claude/settings.json`: on every message, if something changed on the project's board since the last message, Claude knows (one line of context, no wait if the server is off).
 
-Con la lavagna vuota c'è il pulsante **Carica l'esempio: app meteo**.
+On an empty board there is a **Load the example: weather app** button.
 
-Per sviluppare Livingboard: `pnpm dev` (lavagna su http://localhost:5180, in rete con `pnpm dev:lan`). Il ponte usa il server di sviluppo se è già acceso. Lavagne globali, fuori da un progetto: `claude mcp add --transport http livingboard http://localhost:3333/mcp` e `/mcp__livingboard__start`.
-Senza Claude puoi verificare il ciclo con un agente finto: `pnpm smoke`.
+To develop Livingboard: `pnpm dev` (board on http://localhost:5180, on the network with `pnpm dev:lan`). The bridge uses the dev server if it is already running. Global boards, outside a project: `claude mcp add --transport http livingboard http://localhost:3333/mcp` and `/mcp__livingboard__start`.
+Without Claude you can check the loop with a fake agent: `pnpm smoke`.
 
-## Come funziona
+## How it works
 
 ```
- browser (Excalidraw)  ──Yjs──►  server Livingboard  ──MCP──►  Claude Code
-   tratti, forme, testo            │                         │
-   lente AI (overlay)  ◄──Yjs──    ├ segmentazione           ├ wait_for_changes
-   viste interattive               ├ attenzione (maturazione)├ get_board_image (vision)
-                                   ├ grafo semantico          ├ interpret / set_status
-                                   └ render PNG via browser   └ comment / draw / attach_view
+ browser (Excalidraw)  ──Yjs──►  Livingboard server  ──MCP──►  Claude Code
+   strokes, shapes, text           │                         │
+   AI lens (overlay)   ◄──Yjs──    ├ segmentation            ├ wait_for_changes
+   interactive views               ├ attention (maturation)  ├ get_board_image (vision)
+                                   ├ semantic graph          ├ interpret / set_status
+                                   └ PNG render via browser  └ comment / draw / attach_view
 ```
 
-Tre livelli, dal disegno al significato:
+Three layers, from drawing to meaning:
 
-1. **Geometria**: gli elementi Excalidraw grezzi, sincronizzati in tempo reale con Yjs (CRDT).
-2. **Candidati**: un pre-passaggio geometrico deterministico raggruppa ciò che probabilmente esprime un'idea sola: forma + testo, tratti vicini, etichette, frecce che collegano due gruppi. Nessuna interpretazione, solo struttura economica da leggere. Gli ID restano stabili mentre disegni.
-   - **Scrittura a mano**: i tratti si uniscono con una soglia proporzionale alla grandezza della scrittura (più larga lungo la riga, più stretta tra righe e tra colori diversi).
-   - **Frecce disegnate a mano**: un tratto lungo che va da un gruppo a un altro diventa una relazione, con la sua punta. Se invece corre lungo una o due parole (sottolineatura, parentesi) le decora o le unisce.
-   - **Quando sbaglia**: selezioni i tratti e tocchi **⧉ È un'idea** (oppure **↺ Automatico** per tornare indietro); l'agente può fare lo stesso guardando l'immagine con `split_node` / `merge_nodes`. Questi gruppi espliciti valgono come i gruppi di Excalidraw: restano sempre uniti e non si fondono con altri.
-3. **Grafo semantico**: l'AI assegna a ogni candidato un **tipo libero** (mob, item, bioma…), proprietà strutturate e relazioni. I tipi formano un'**ontologia emergente**: nessuno li definisce prima.
+1. **Geometry**: raw Excalidraw elements, synced in real time with Yjs (CRDT).
+2. **Candidates**: a deterministic geometric pre-pass groups what probably expresses a single idea: shape + text, nearby strokes, labels, arrows linking two groups. No interpretation, just cheap structure to read. IDs stay stable while you draw.
+   - **Handwriting**: strokes join with a threshold proportional to the writing size (wider along the line, tighter between lines and between colours).
+   - **Hand-drawn arrows**: a long stroke going from one group to another becomes a relation, with its arrowhead. If it runs along one or two words instead (underline, bracket), it decorates or joins them.
+   - **When it gets it wrong**: select the strokes and tap **⧉ One idea** (or **↺ Automatic** to go back); the agent can do the same by looking at the image with `split_node` / `merge_nodes`. These explicit groups work like Excalidraw groups: they always stay together and never merge with others.
+3. **Semantic graph**: the AI gives each candidate a **free type** (mob, item, biome…), structured properties and relations. The types form an **emergent ontology**: nobody defines them upfront.
 
-### iPad e tablet (stile GoodNotes)
+### iPad and tablets (GoodNotes style)
 
-La modalità tablet si attiva da sola su iPad (o dal pannello, o con `?tablet=1`):
+Tablet mode turns on by itself on iPad (or from the panel, or with `?tablet=1`):
 
-- **Apple Pencil disegna, le dita navigano**: un dito sposta, due dita zoomano, il palmo appoggiato viene ignorato.
-- **Tap con due dita = annulla, tap con tre dita = ripeti**; in alto ci sono comunque i pulsanti ↶ ↷.
-- **Barra grande** con penna, evidenziatore, gomma, selezione, testo e forme; colori e spessori per ogni strumento, ricordati sul dispositivo.
-- Interruttore **dito: naviga / disegna** per chi non ha la penna.
-- Si può aggiungere alla schermata Home: si apre a schermo intero come un'app.
+- **Apple Pencil draws, fingers navigate**: one finger pans, two fingers zoom, a resting palm is ignored.
+- **Two-finger tap = undo, three-finger tap = redo**; the ↶ ↷ buttons are at the top anyway.
+- **Big toolbar** with pen, highlighter, eraser, selection, text and shapes; colours and widths per tool, remembered on the device.
+- **Finger: pan / draw** switch for people without a pen.
+- Can be added to the Home Screen: it opens full screen like an app.
 
-Su desktop restano gli strumenti di Excalidraw, con due pulsanti chiari *Annulla* / *Ripeti* in basso.
+On desktop the Excalidraw tools stay, with two clear *Undo* / *Redo* buttons at the bottom.
 
-### Una lavagna pulita
+### A clean board
 
-- **Solo disegni**: di base sopra la lavagna non c'è nessuna etichetta. Selezioni qualcosa e compare come Claude l'ha letto (tipo e nome, con la scheda per correggerlo); la **Lente AI** nel pannello mostra etichette, relazioni e stato su tutte le idee, per chi le vuole.
-- **I messaggi di Claude si vedono subito**: risposte e domande compaiono aperte accanto a ciò di cui parlano, finché non premi *Ok* o rispondi lì stesso; poi restano come un piccolo ✳ (o un **?** arancione se Claude aspetta una risposta). Quelli sull'intera lavagna o fuori schermo, o con lo zoom lontano, stanno in una casella in alto con *Vai lì*. Il "letto" è per dispositivo.
-- **Niente sovrapposizioni**: messaggi ed etichette evitano frecce, disegni e altre idee; le viste si aprono solo su richiesta, oppure restano aperte per tutti se fissate 📌.
-- **Riordina**: dal pannello (o proposto da Claude) un riordino ad albero che segue le tue frecce. Si vede in anteprima fantasma e non si muove nulla finché non premi *Applica*; i disegni di Claude legati a un nodo lo seguono.
+- **Just drawings**: by default there are no labels over the board. Select something and you see how Claude read it (type and name, with the card to correct it); the **AI lens** in the panel shows labels, relations and status on every idea, for those who want them.
+- **Claude's messages show up right away**: answers and questions appear open next to what they are about, until you press *Ok* or reply right there; then they stay as a small ✳ (or an orange **?** if Claude is waiting for an answer). Those about the whole board, off screen, or when zoomed far out sit in an inbox at the top with *Go there*. "Read" is per device.
+- **No overlaps**: messages and labels avoid arrows, drawings and other ideas; views open only on request, or stay open for everyone when pinned 📌.
+- **Tidy the board**: from the panel (or proposed by Claude) a tree layout that follows your arrows. You see a ghost preview and nothing moves until you press *Apply*; Claude's drawings tied to a node follow it.
 
-### Claude disegna, e tiene aggiornato
+### Claude draws, and keeps it up to date
 
-Claude esprime quello che decide e costruisce **disegnando direttamente sulla lavagna**, nello stile della lavagna (colore d'inchiostro, grandezza della scrittura):
+Claude expresses what it decides and builds **by drawing directly on the board**, in the board's style (ink colour, writing size):
 
-- `draw_svg` è lo strumento principale: Claude scrive SVG (che conosce benissimo) e diventa elementi Excalidraw disegnati a mano e modificabili: rettangoli, ellissi, linee e tracciati (anche archi), riempimenti, testo, frecce, gruppi con trasformazioni. Schermate, oggetti, mappe, timeline, spiegazioni illustrate.
-- `draw_table` disegna una tabella: confronti, elenchi con attributi, piani, stati (✓ ⏳), con celle evidenziate.
-- `extend` continua la tua struttura ad albero nella direzione delle tue frecce, senza incroci;
-- `draw_diagram` (Mermaid), `draw_chart` (barre), `annotate` (cerchia, sottolinea, spunta), `note` (nota a margine), `add_image` (screenshot).
+- `draw_svg` is the main tool: Claude writes SVG (which it knows very well) and it becomes hand-drawn, editable Excalidraw elements: rectangles, ellipses, lines and paths (arcs too), fills, text, arrows, groups with transforms. Screens, objects, maps, timelines, illustrated explanations.
+- `draw_table` draws a table: comparisons, lists with attributes, plans, statuses (✓ ⏳), with highlighted cells.
+- `extend` continues your tree structure in the direction of your arrows, without crossings;
+- `draw_diagram` (Mermaid), `draw_chart` (bars), `annotate` (circle, underline, tick), `note` (side note), `add_image` (screenshot).
 
-Ogni disegno ha un `drawingId`. Quando il progetto cambia Claude lo **ridisegna sul posto** (`replace`) o lo **cancella** (`erase`) invece di aggiungerne copie, così la lavagna mostra lo stato attuale e non la storia. Se una persona modifica o cancella un disegno di Claude (riscrive una cella, toglie una riga), Claude lo riceve come `drawingEdits` con i testi cambiati e adegua il progetto. Al massimo 20 parole per elemento; il **Documento** (scheda nel pannello) resta per i testi lunghi.
+Every drawing has a `drawingId`. When the project changes Claude **redraws it in place** (`replace`) or **erases it** (`erase`) instead of adding copies, so the board shows the current state, not the history. If a person edits or deletes one of Claude's drawings (rewrites a cell, removes a row), Claude receives it as `drawingEdits` with the changed texts and updates the project. At most 20 words per element; the **Document** (a tab in the panel) is for long texts.
 
-### Immagini
+Claude writes on the board in the language people use there.
 
-- **Dalle persone**: incolla o trascina un'immagine (su iPad c'è il pulsante 🖼 nel dock) e arriva a tutti i partecipanti. L'agente la vede nel contesto con `get_board_image` e a piena risoluzione con `get_image`.
-- **Dall'agente**: `add_image` mette sulla lavagna uno screenshot di ciò che ha costruito, un render o una foto di riferimento, accanto al nodo a cui si riferisce (e lo segue nel riordino). Con `replace` aggiorna la stessa immagine a ogni nuova versione invece di accumularne copie. Come fare lo screenshot (browser, emulatore, gioco...) è affare dell'agente e dei suoi strumenti, non di Livingboard.
-- Formati PNG, JPEG, GIF, WebP e SVG, max 4 MB l'una; la stessa immagine è salvata una volta sola.
+### Images
 
-### Come lavora l'AI
+- **From people**: paste or drag an image (on iPad there is the 🖼 button in the dock) and it reaches every participant. The agent sees it in context with `get_board_image` and at full resolution with `get_image`.
+- **From the agent**: `add_image` puts on the board a screenshot of what it built, a render or a reference photo, next to the node it refers to (and follows it when rearranged). With `replace` it updates the same image at every new version instead of piling up copies. How to take the screenshot (browser, emulator, game...) is up to the agent and its tools, not Livingboard.
+- PNG, JPEG, GIF, WebP and SVG, max 4 MB each; the same image is stored only once.
 
-- **Maturazione**: un candidato arriva all'agente solo quando nessuno lo tocca da qualche secondo, così un testo non viene mai letto a metà. Sul canvas non compaiono indicatori di attesa: lo stato sta in una riga del pannello.
-- **Riconoscimento**: *implicito* (l'AI interpreta e agisce subito, tu correggi) o *ibrido* (l'AI propone, tu confermi con ✓).
-- **Effort**: basso (solo domande `@AI`), medio, alto (propone anche idee "fantasma" da tenere o scartare).
-- **Permessi**: sola lettura, chiedi, auto (azioni reversibili senza chiedere, irreversibili sempre con conferma).
-- **Non si blocca**: se manca un dettaglio sceglie un valore sensato e lo mostra come ipotesi ⚠ correggibile.
-- **Non tocca i tratti umani**: disegna solo con elementi propri, marcati come AI.
-- Ogni correzione umana (conferma, scarto, cambio di tipo, risposta, modifica da una vista) torna all'agente come feedback.
+### How the AI works
 
-### Tool MCP
+- **Maturation**: a candidate reaches the agent only when nobody has touched it for a few seconds, so a text is never read half-written. No waiting indicators on the canvas: the status is one line in the panel.
+- **Recognition**: *implicit* (the AI interprets and acts right away, you correct) or *hybrid* (the AI proposes, you confirm with ✓).
+- **Effort**: low (only `@AI` questions), medium, high (also proposes "ghost" ideas to keep or discard).
+- **Permissions**: read-only, ask, auto (reversible actions without asking, irreversible ones always confirmed).
+- **Never stuck**: if a detail is missing it picks a sensible value and shows it as a ⚠ assumption you can correct.
+- **Never touches human strokes**: it draws only with its own elements, marked as AI.
+- Every human correction (confirm, discard, change of type, answer, edit from a view) goes back to the agent as feedback.
 
-| Tool | Cosa fa |
+### MCP tools
+
+| Tool | What it does |
 |---|---|
-| `open_board` | apre (o crea) una lavagna del progetto e la mostra nel browser; URL, indirizzi in rete, altre lavagne |
-| `board_overview` | stato, policy, ontologia, candidati, relazioni |
-| `wait_for_changes` | long-poll: candidati maturi, feedback, rimozioni, cambi di impostazioni |
-| `get_board_image` | PNG di tutta la lavagna o ritagliato su alcuni nodi (renderizzato da un browser aperto) |
-| `interpret` | scrive tipi, etichette, props, ipotesi, relazioni, tipi dell'ontologia |
-| `set_status` | badge di costruzione su un nodo (building, done con file, error, question) |
-| `comment` | commento ancorato a un nodo: risposte `@AI`, domande, note |
-| `draw` | forme, testi e frecce di base (max 20 parole); l'AI dice *cosa* e *vicino a cosa*, il server sceglie *dove* |
-| `attach_view` | vista interattiva HTML attaccata a un nodo |
-| `list_views` | viste salvate nel registro (filtrabili per nodo compatibile) |
-| `apply_view` | applica una vista salvata a un nodo |
-| `save_view` | salva una vista nel registro |
-| `write_doc` | scrive o sostituisce una sezione del Documento (solo testi lunghi) |
-| `extend` | aggiunge idee figlie continuando la struttura disegnata |
-| `draw_svg` | qualsiasi disegno da SVG: forme, riempimenti, testo, frecce, gruppi |
-| `draw_table` | tabella disegnata a mano (fino a 20×8), celle evidenziate |
-| `erase` | cancella disegni di Claude superati (per `drawingId`) |
-| `ask_permission` | chiede un permesso sulla lavagna: domanda con caselle "☐ Sì ☐ No"; la persona ci fa un segno (spunta a penna, x, ✓) e la risposta arriva in `wait_for_changes.approvals` |
-| `delete_text` | cancella un testo, intero o solo una parte; il testo di una persona solo dopo un Sì con `ask_permission` |
-| `draw_diagram` | diagramma da Mermaid |
-| `draw_chart` | grafico a barre (1-8 valori) |
-| `annotate` | cerchio, sottolineatura, evidenziatore, ✓/✗, richiamo |
-| `note` | nota a margine |
-| `add_image` | immagine da file locale, url o base64, vicino a un nodo; `replace` la aggiorna sul posto |
-| `get_image` | l'originale di un'immagine sulla lavagna, a piena risoluzione |
-| `propose_layout` | propone un riordino (anteprima, lo applica una persona) |
-| `split_node` | divide un candidato con riquadri disegnati sull'immagine (`imageId` di `get_board_image`) |
-| `merge_nodes` | unisce più candidati in un'idea |
-| `inspect` | dettaglio completo di un candidato |
+| `open_board` | opens (or creates) a project board and shows it in the browser; URL, network addresses, other boards |
+| `board_overview` | status, policy, ontology, candidates, relations |
+| `wait_for_changes` | long-poll: mature candidates, feedback, removals, settings changes |
+| `get_board_image` | PNG of the whole board or cropped to some nodes (rendered by an open browser) |
+| `interpret` | writes types, labels, props, assumptions, relations, ontology types |
+| `set_status` | build badge on a node (building, done with files, error, question) |
+| `comment` | comment anchored to a node: `@AI` answers, questions, notes |
+| `draw` | basic shapes, texts and arrows (max 20 words); the AI says *what* and *near what*, the server picks *where* |
+| `attach_view` | interactive HTML view attached to a node |
+| `list_views` | views saved in the registry (filterable by compatible node) |
+| `apply_view` | applies a saved view to a node |
+| `save_view` | saves a view in the registry |
+| `write_doc` | writes or replaces a section of the Document (long texts only) |
+| `extend` | adds child ideas continuing the drawn structure |
+| `draw_svg` | any drawing from SVG: shapes, fills, text, arrows, groups |
+| `draw_table` | hand-drawn table (up to 20×8), highlighted cells |
+| `erase` | erases outdated Claude drawings (by `drawingId`) |
+| `ask_permission` | asks for permission on the board: a question with "☐ Yes ☐ No" boxes; the person marks one (pen tick, x, ✓) and the answer arrives in `wait_for_changes.approvals` |
+| `delete_text` | deletes a text, whole or in part; a person's text only after a Yes with `ask_permission` |
+| `draw_diagram` | diagram from Mermaid |
+| `draw_chart` | bar chart (1-8 values) |
+| `annotate` | circle, underline, highlighter, ✓/✗, callout |
+| `note` | side note |
+| `add_image` | image from a local file, url or base64, near a node; `replace` updates it in place |
+| `get_image` | the original of an image on the board, at full resolution |
+| `propose_layout` | proposes a layout (preview, a person applies it) |
+| `split_node` | splits a candidate with boxes drawn on the image (`imageId` from `get_board_image`) |
+| `merge_nodes` | merges several candidates into one idea |
+| `inspect` | full detail of a candidate |
 
-Prompt MCP: `start` (in Claude Code `/mcp__livingboard__start`).
+MCP prompt: `start` (in Claude Code `/mcp__livingboard__start`).
 
-### Viste interattive (le "estensioni")
+### Interactive views (the "extensions")
 
-Un'estensione è una **vista**: una piccola app HTML che l'AI genera al volo e attacca a un nodo, ad esempio una scheda con slider o una piccola tabella modificabile. Gira in un iframe sandbox (solo script, niente rete) e riceve un oggetto `livingboard`:
+An extension is a **view**: a small HTML app the AI generates on the fly and attaches to a node, for example a card with sliders or a small editable table. It runs in a sandboxed iframe (scripts only, no network) and gets a `livingboard` object:
 
 ```js
 livingboard.node          // { id, type, label }
-livingboard.props         // proprietà del nodo
-livingboard.onProps(fn)   // fn(props) subito e a ogni modifica
-livingboard.update(patch) // scrive nelle props; l'agente lo riceve come feedback "view-edit"
-livingboard.resize(h)     // altezza della card (anche automatica)
+livingboard.props         // the node's properties
+livingboard.onProps(fn)   // fn(props) right away and on every change
+livingboard.update(patch) // writes into props; the agent receives it as "view-edit" feedback
+livingboard.resize(h)     // card height (automatic too)
 ```
 
-La card si trascina dall'intestazione e la posizione è condivisa con tutti.
+The card is dragged by its header and its position is shared with everyone.
 
-**Registro delle viste**: con ☆ sull'intestazione salvi una vista nel registro del server (`data/views/*.json`, condiviso da tutte le lavagne). Ogni vista dichiara le **props richieste** (es. `price.amount`): la compatibilità si decide dalla forma dei dati, non dal nome del tipo, perché i tipi li inventa l'AI. La scheda di un nodo mostra le viste compatibili da applicare con un tocco; l'agente fa lo stesso con `list_views` / `apply_view` e salva le sue con `save_view`.
+**View registry**: with ☆ on the header you save a view in the server's registry (`data/views/*.json`, shared by all boards). Every view declares its **required props** (e.g. `price.amount`): compatibility is decided by the shape of the data, not by the type name, because the AI invents the types. A node's card shows the compatible views to apply with one tap; the agent does the same with `list_views` / `apply_view` and saves its own with `save_view`.
 
-## Struttura
+## Layout
 
 ```
-packages/shared   schema del documento condiviso (tipi, chiavi Yjs, impostazioni)
-packages/server   sync Yjs, segmentazione, attenzione, MCP, persistenza in data/
-packages/web      Excalidraw + overlay AI + pannello + viste
-demo/minecraft-pack  esempio d'uso: un add-on Minecraft costruito da Claude a partire da una lavagna (.mcp.json + CLAUDE.md del progetto)
+packages/shared   shared document schema (types, Yjs keys, settings)
+packages/server   Yjs sync, segmentation, attention, MCP, persistence in data/
+packages/web      Excalidraw + AI overlay + panel + views
+demo/minecraft-pack  usage example: a Minecraft add-on built by Claude from a board (.mcp.json + the project's CLAUDE.md)
 ```
 
-Utili:
+Handy:
 
-- `pnpm --filter @livingboard/server exec tsx scripts/mcp.ts call board_overview`: client MCP da terminale (`@file.json` per argomenti lunghi, `--out` per salvare le immagini).
-- Lavagne di un progetto: `?p=<id progetto>&board=nome` (l'id è nome della cartella + hash del percorso, registrato in `data/projects.json`); file in `<progetto>/.livingboard/boards/`. Lavagne globali: `?board=nome`, file in `data/<nome>.ydoc`.
-- `pnpm --filter @livingboard/server exec tsx scripts/bridge-smoke.ts <cartella> [lavagna]`: parla col ponte stdio come Claude Code.
-- Il server avviato dal ponte scrive il log in `data/server.log`.
-- `pnpm build && pnpm start`: un solo processo su http://localhost:3333 (lavagna + MCP).
-- `LIVINGBOARD_PORT`, `LIVINGBOARD_HOST`, `LIVINGBOARD_DATA` per porta, interfaccia e cartella dati.
+- `pnpm --filter @livingboard/server exec tsx scripts/mcp.ts call board_overview`: MCP client from the terminal (`@file.json` for long arguments, `--out` to save images).
+- Project boards: `?p=<project id>&board=name` (the id is the folder name + a hash of the path, registered in `data/projects.json`); files in `<project>/.livingboard/boards/`. Global boards: `?board=name`, file in `data/<name>.ydoc`.
+- `pnpm --filter @livingboard/server exec tsx scripts/bridge-smoke.ts <folder> [board]`: talks to the stdio bridge like Claude Code (it draws a test table: use a throwaway folder).
+- The server started by the bridge logs to `data/server.log`.
+- `pnpm build && pnpm start`: a single process on http://localhost:3333 (board + MCP).
+- `LIVINGBOARD_PORT`, `LIVINGBOARD_HOST`, `LIVINGBOARD_DATA` for port, interface and data folder.
 
-## Sicurezza
+## Security
 
-Il server ascolta solo su `127.0.0.1` e rifiuta richieste dal browser con origini estranee. Non c'è autenticazione: se lo esponi in rete (`LIVINGBOARD_HOST=0.0.0.0`) chiunque possa raggiungerlo può modificare la lavagna e parlare con l'agente. Solo un agente sullo stesso computer può dire a quale cartella di progetto appartiene (`x-livingboard-project`), perché il server scrive lì le lavagne; il browser apre la lavagna di un progetto solo se quel progetto è già stato registrato da un agente locale. `add_image` legge file per percorso solo se l'agente è sullo stesso computer del server (chi arriva dalla rete può passare solo url o base64), e accetta solo file che sono davvero immagini. Il contenuto della lavagna arriva all'agente come dato, ma i permessi (sola lettura / chiedi) restano la difesa principale quando collabori con persone di cui non ti fidi.
+The server listens only on `127.0.0.1` and refuses browser requests from foreign origins. There is no authentication: if you expose it on the network (`LIVINGBOARD_HOST=0.0.0.0`) anyone who can reach it can edit the board and talk to the agent. Only an agent on the same computer can say which project folder it belongs to (`x-livingboard-project`), because the server writes the boards there; the browser opens a project board only if that project was already registered by a local agent. `add_image` reads files by path only if the agent is on the same computer as the server (callers from the network can only pass a url or base64), and accepts only files that really are images. Board content reaches the agent as data, but permissions (read-only / ask) remain the main defence when you collaborate with people you don't trust.
 
-## Limiti noti
+## Known limits
 
-- Le immagini viaggiano dentro il documento della lavagna: tante foto grandi la rendono pesante da caricare per tutti.
-- Le frecce disegnate dall'AI non sono legate alle forme: se sposti un box non lo seguono.
-- Il riconoscimento degli schizzi dipende dalla vision dell'agente (`get_board_image`).
-- Un agente per lavagna alla volta (il cursore del feedback è unico).
-- Gesti del tablet verificati con eventi simulati; la sensibilità del rifiuto del palmo va tarata su un iPad vero.
+- Images travel inside the board document: many large photos make it heavy to load for everyone.
+- Arrows drawn by the AI are not bound to shapes: if you move a box they don't follow.
+- Sketch recognition depends on the agent's vision (`get_board_image`).
+- One agent per board at a time (the feedback cursor is single).
+- Tablet gestures were checked with simulated events; palm rejection sensitivity needs tuning on a real iPad.
 
 ## Roadmap
 
-- Agente sempre attivo lato server (Agent SDK) in alternativa al ciclo MCP.
-- Confronto misurato tra riconoscimento ibrido e implicito.
-- Autenticazione e lavagne remote.
+- Always-on server-side agent (Agent SDK) as an alternative to the MCP loop.
+- Measured comparison between hybrid and implicit recognition.
+- Authentication and remote boards.
 
-## Licenza
+## License
 
 MIT

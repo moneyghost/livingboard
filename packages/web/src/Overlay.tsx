@@ -467,9 +467,9 @@ export function Overlay({ model, board, viewport: v, lens, selection, onFocus, s
         if (!isOnScreen(r, v)) return null;
         return (
           <div key={g.id} className="ghost-bar" style={{ left: r.left, top: r.top - 12 }}>
-            <span>✳ Idea di Claude</span>
+            <span>✳ Claude's idea</span>
             <button type="button" onClick={() => model.acceptGhost(g.id)}>
-              ✓ Tieni
+              ✓ Keep
             </button>
             <button type="button" onClick={() => model.rejectGhost(g.id)}>
               ✕
@@ -582,7 +582,7 @@ function NodeChip(props: {
         </span>
         <span className="chip-label">{node.label}</span>
         {node.by === "user" && (
-          <span className="chip-flag" title="Corretto da un umano">
+          <span className="chip-flag" title="Corrected by a human">
             ✎
           </span>
         )}
@@ -592,22 +592,22 @@ function NodeChip(props: {
           </span>
         )}
         {stale && (
-          <span className="chip-flag" title="Modificato: Claude lo rileggerà">
+          <span className="chip-flag" title="Changed: Claude will reread it">
             ↻
           </span>
         )}
       </button>
       {view && (
-        <button type="button" className={`chip-act view ${viewOpen ? "on" : ""}`} onClick={onToggleView} title={viewOpen ? "Chiudi la vista" : `Apri la vista «${view.title}»`}>
+        <button type="button" className={`chip-act view ${viewOpen ? "on" : ""}`} onClick={onToggleView} title={viewOpen ? "Close the view" : `Open the view “${view.title}”`}>
           ▣
         </button>
       )}
       {proposed && hybrid && (
         <>
-          <button type="button" className="chip-act ok" onClick={onConfirm} title="Conferma">
+          <button type="button" className="chip-act ok" onClick={onConfirm} title="Confirm">
             ✓
           </button>
-          <button type="button" className="chip-act no" onClick={onReject} title="Non è così">
+          <button type="button" className="chip-act no" onClick={onReject} title="That's not it">
             ✕
           </button>
         </>
@@ -624,10 +624,10 @@ function EdgeChip(props: { edge: AIEdge; x: number; y: number; hybrid: boolean; 
       <span title={edge.label}>{edge.type}</span>
       {proposed && hybrid && (
         <>
-          <button type="button" onClick={() => model.confirmEdge(edge.id)} title="Conferma">
+          <button type="button" onClick={() => model.confirmEdge(edge.id)} title="Confirm">
             ✓
           </button>
-          <button type="button" onClick={() => model.rejectEdge(edge.id)} title="Scarta">
+          <button type="button" onClick={() => model.rejectEdge(edge.id)} title="Discard">
             ✕
           </button>
         </>
@@ -666,13 +666,13 @@ function ProposalLayer({
       </svg>
       <div className="proposal-bar">
         <span>
-          ✳ {proposal.by === "ai" ? proposal.title : "Anteprima del riordino"} · {moves.length} {moves.length === 1 ? "elemento" : "elementi"}
+          ✳ {proposal.by === "ai" ? proposal.title : "Tidy preview"} · {moves.length} {moves.length === 1 ? "item" : "items"}
         </span>
         <button type="button" className="btn ok" onClick={() => model.applyProposal()}>
-          Applica
+          Apply
         </button>
         <button type="button" className="btn ghost" onClick={() => model.rejectProposal()}>
-          Scarta
+          Discard
         </button>
       </div>
     </>
@@ -730,14 +730,14 @@ function NodeCard(props: {
     <div ref={ref} className="node-card" style={{ left, top, width }} onWheel={(e) => e.stopPropagation()}>
       <div className="card-head" style={{ background: type?.color ?? GRAY }}>
         <span>
-          {type?.icon ?? "◆"} {node ? `${node.type} · ${node.label}` : "Non ancora interpretato"}
+          {type?.icon ?? "◆"} {node ? `${node.type} · ${node.label}` : "Not interpreted yet"}
         </span>
-        <button type="button" onClick={onClose} aria-label="Chiudi">
+        <button type="button" onClick={onClose} aria-label="Close">
           ×
         </button>
       </div>
       <div className="card-body">
-        <p className="muted small">Visto come: {cand.summary}</p>
+        <p className="muted small">Seen as: {cand.summary}</p>
         {node?.summary && <p className="card-summary">{node.summary}</p>}
 
         {node && Object.keys(node.props).length > 0 && (
@@ -753,7 +753,7 @@ function NodeCard(props: {
 
         {node && node.assumptions.length > 0 && (
           <div className="assumptions">
-            <strong>Ipotesi di Claude</strong>
+            <strong>Claude's assumptions</strong>
             <ul>
               {node.assumptions.map((a) => (
                 <li key={a}>{a}</li>
@@ -780,17 +780,17 @@ function NodeCard(props: {
         {view && (
           <div className="row view-controls">
             <button type="button" className="btn" onClick={onToggleView}>
-              {viewOpen ? "Chiudi la vista" : `▣ Apri «${view.title}»`}
+              {viewOpen ? "Close the view" : `▣ Open “${view.title}”`}
             </button>
-            <button type="button" className={`btn ${view.pinned ? "ok" : "ghost"}`} onClick={onPinView} title="Una vista fissata è aperta per tutti">
-              {view.pinned ? "📌 Fissata" : "📌 Fissa"}
+            <button type="button" className={`btn ${view.pinned ? "ok" : "ghost"}`} onClick={onPinView} title="A pinned view is open for everyone">
+              {view.pinned ? "📌 Pinned" : "📌 Pin"}
             </button>
           </div>
         )}
 
         {compatible.length > 0 && (
           <div className="saved-views">
-            <strong>Viste salvate compatibili</strong>
+            <strong>Compatible saved views</strong>
             {compatible.map((sv) => (
               <div key={sv.name} className="saved-view">
                 <div>
@@ -798,7 +798,7 @@ function NodeCard(props: {
                   {sv.description && <span className="muted small"> · {sv.description}</span>}
                 </div>
                 <button type="button" className="btn" disabled={view?.source === sv.name} onClick={() => props.onApplyView(sv)}>
-                  {view?.source === sv.name ? "In uso" : "Applica"}
+                  {view?.source === sv.name ? "In use" : "Apply"}
                 </button>
               </div>
             ))}
@@ -813,10 +813,10 @@ function NodeCard(props: {
               if (changed && newType.trim()) model.retypeNode(node.id, newType.trim(), newLabel.trim() || node.label);
             }}
           >
-            <strong>Non è così? Correggi</strong>
+            <strong>Not right? Correct it</strong>
             <div className="row">
-              <input list="ontology-types" value={newType} onChange={(e) => setNewType(e.target.value)} placeholder="tipo" />
-              <input value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="nome" />
+              <input list="ontology-types" value={newType} onChange={(e) => setNewType(e.target.value)} placeholder="type" />
+              <input value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="name" />
             </div>
             <datalist id="ontology-types">
               {ontology.map((t) => (
@@ -826,15 +826,15 @@ function NodeCard(props: {
             <div className="row">
               {node.status === "proposed" && (
                 <button type="button" className="btn ok" onClick={() => model.confirmNode(node.id)}>
-                  ✓ Conferma
+                  ✓ Confirm
                 </button>
               )}
               <button type="submit" className="btn" disabled={!changed}>
-                Correggi
+                Correct
               </button>
               {node.status !== "rejected" && (
                 <button type="button" className="btn ghost" onClick={() => model.rejectNode(node.id)}>
-                  Ignora
+                  Ignore
                 </button>
               )}
             </div>
@@ -857,9 +857,9 @@ function NodeCard(props: {
               setReply("");
             }}
           >
-            <input value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Scrivi a Claude…" />
+            <input value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Write to Claude…" />
             <button type="submit" className="btn">
-              Invia
+              Send
             </button>
           </form>
         </div>

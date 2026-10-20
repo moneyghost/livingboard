@@ -28,11 +28,11 @@ function loadPrefs(): Prefs {
 }
 
 const SHAPES: { type: ToolType; label: string; icon: ReactNode }[] = [
-  { type: "rectangle", label: "Rettangolo", icon: <rect x="4" y="6" width="16" height="12" rx="2" /> },
-  { type: "ellipse", label: "Ellisse", icon: <ellipse cx="12" cy="12" rx="9" ry="7" /> },
-  { type: "diamond", label: "Rombo", icon: <path d="M12 3 21 12 12 21 3 12Z" /> },
-  { type: "arrow", label: "Freccia", icon: <path d="M5 19 19 5M10 5h9v9" /> },
-  { type: "line", label: "Linea", icon: <path d="M5 19 19 5" /> },
+  { type: "rectangle", label: "Rectangle", icon: <rect x="4" y="6" width="16" height="12" rx="2" /> },
+  { type: "ellipse", label: "Ellipse", icon: <ellipse cx="12" cy="12" rx="9" ry="7" /> },
+  { type: "diamond", label: "Diamond", icon: <path d="M12 3 21 12 12 21 3 12Z" /> },
+  { type: "arrow", label: "Arrow", icon: <path d="M5 19 19 5M10 5h9v9" /> },
+  { type: "line", label: "Line", icon: <path d="M5 19 19 5" /> },
 ];
 
 const Icon = ({ children }: { children: ReactNode }) => (
@@ -124,12 +124,12 @@ interface Props {
 const GroupButtons = ({ selection, grouped, onGroup, onUngroup }: Pick<Props, "selection" | "grouped" | "onGroup" | "onUngroup">) =>
   selection.length ? (
     <>
-      <button type="button" className="dock-text-btn" onClick={onGroup} title="Claude legge la selezione come un'unica idea">
-        ⧉ È un'idea
+      <button type="button" className="dock-text-btn" onClick={onGroup} title="Claude reads the selection as a single idea">
+        ⧉ One idea
       </button>
       {grouped && (
-        <button type="button" className="dock-text-btn" onClick={onUngroup} title="Torna al raggruppamento automatico">
-          ↺ Automatico
+        <button type="button" className="dock-text-btn" onClick={onUngroup} title="Back to automatic grouping">
+          ↺ Automatic
         </button>
       )}
     </>
@@ -188,12 +188,12 @@ export function Dock({ api, tablet, activeTool, fingerDraw, onFingerDraw, select
   if (!tablet) {
     return (
       <div className="dock dock-compact">
-        <button type="button" onClick={undo} title="Annulla (Ctrl+Z)">
+        <button type="button" onClick={undo} title="Undo (Ctrl+Z)">
           {I.undo}
-          <span>Annulla</span>
+          <span>Undo</span>
         </button>
-        <button type="button" onClick={redo} title="Ripeti (Ctrl+Shift+Z)">
-          <span>Ripeti</span>
+        <button type="button" onClick={redo} title="Redo (Ctrl+Shift+Z)">
+          <span>Redo</span>
           {I.redo}
         </button>
         {selection.length > 0 && <span className="dock-sep" />}
@@ -207,38 +207,38 @@ export function Dock({ api, tablet, activeTool, fingerDraw, onFingerDraw, select
   return (
     <div className="dock-stack" onPointerDown={(e) => e.stopPropagation()}>
       <div className="dock">
-        <button type="button" className="dock-btn" onClick={undo} title="Annulla (tap con due dita)">
+        <button type="button" className="dock-btn" onClick={undo} title="Undo (two-finger tap)">
           {I.undo}
         </button>
-        <button type="button" className="dock-btn" onClick={redo} title="Ripeti (tap con tre dita)">
+        <button type="button" className="dock-btn" onClick={redo} title="Redo (three-finger tap)">
           {I.redo}
         </button>
         <span className="dock-sep" />
-        <button type="button" className={`dock-btn ${inkActive && ink === "pen" ? "on" : ""}`} onClick={() => pickInk("pen")} title="Penna">
+        <button type="button" className={`dock-btn ${inkActive && ink === "pen" ? "on" : ""}`} onClick={() => pickInk("pen")} title="Pen">
           {I.pen}
         </button>
         <button
           type="button"
           className={`dock-btn ${inkActive && ink === "highlighter" ? "on" : ""}`}
           onClick={() => pickInk("highlighter")}
-          title="Evidenziatore"
+          title="Highlighter"
         >
           {I.highlighter}
         </button>
-        <button type="button" className={`dock-btn ${activeTool === "eraser" ? "on" : ""}`} onClick={() => pickTool("eraser")} title="Gomma">
+        <button type="button" className={`dock-btn ${activeTool === "eraser" ? "on" : ""}`} onClick={() => pickTool("eraser")} title="Eraser">
           {I.eraser}
         </button>
-        <button type="button" className={`dock-btn ${activeTool === "selection" ? "on" : ""}`} onClick={() => pickTool("selection")} title="Seleziona">
+        <button type="button" className={`dock-btn ${activeTool === "selection" ? "on" : ""}`} onClick={() => pickTool("selection")} title="Select">
           {I.select}
         </button>
-        <button type="button" className={`dock-btn ${activeTool === "text" ? "on" : ""}`} onClick={() => pickTool("text")} title="Testo">
+        <button type="button" className={`dock-btn ${activeTool === "text" ? "on" : ""}`} onClick={() => pickTool("text")} title="Text">
           {I.text}
         </button>
         <button
           type="button"
           className={`dock-btn ${shapeActive || shapesOpen ? "on" : ""}`}
           onClick={() => (shapeActive ? pickTool("selection") : setShapesOpen(!shapesOpen))}
-          title="Forme"
+          title="Shapes"
         >
           {I.shapes}
         </button>
@@ -246,7 +246,7 @@ export function Dock({ api, tablet, activeTool, fingerDraw, onFingerDraw, select
           type="button"
           className="dock-btn"
           onClick={() => api?.setActiveTool({ type: "image", insertOnCanvasDirectly: true })}
-          title="Inserisci una foto o un'immagine"
+          title="Insert a photo or image"
         >
           {I.image}
         </button>
@@ -255,10 +255,10 @@ export function Dock({ api, tablet, activeTool, fingerDraw, onFingerDraw, select
           type="button"
           className={`dock-btn finger ${fingerDraw ? "on" : ""}`}
           onClick={() => onFingerDraw(!fingerDraw)}
-          title={fingerDraw ? "Il dito disegna: tocca per usarlo solo per spostarti" : "Il dito sposta e zooma: tocca per disegnare col dito"}
+          title={fingerDraw ? "Finger draws: tap to use it only for moving around" : "Finger pans and zooms: tap to draw with your finger"}
         >
           {I.hand}
-          <span className="finger-label">{fingerDraw ? "disegna" : "naviga"}</span>
+          <span className="finger-label">{fingerDraw ? "draw" : "pan"}</span>
         </button>
       </div>
 
@@ -275,7 +275,7 @@ export function Dock({ api, tablet, activeTool, fingerDraw, onFingerDraw, select
                 savePrefs(next);
                 pickInk(ink, next[ink]);
               }}
-              aria-label={`Colore ${c}`}
+              aria-label={`Color ${c}`}
             />
           ))}
           <span className="dock-sep" />
@@ -289,7 +289,7 @@ export function Dock({ api, tablet, activeTool, fingerDraw, onFingerDraw, select
                 savePrefs(next);
                 pickInk(ink, next[ink]);
               }}
-              aria-label={["Sottile", "Medio", "Spesso"][i]}
+              aria-label={["Thin", "Medium", "Thick"][i]}
             >
               <i style={{ width: 4 + i * 4, height: 4 + i * 4, background: ink === "highlighter" ? style.color : "currentColor" }} />
             </button>
