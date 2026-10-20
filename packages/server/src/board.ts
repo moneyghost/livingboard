@@ -18,7 +18,7 @@ import {
   type Feedback,
   isAiAuthored,
   type LayoutProposal,
-  sinapsiData,
+  livingboardData,
   type OntologyType,
   type Settings,
   STABILITY_MS,
@@ -27,7 +27,7 @@ import {
   treeLayout,
   type ViewDef,
   uid,
-} from "@sinapsi/shared";
+} from "@livingboard/shared";
 import { Awareness } from "y-protocols/awareness";
 import * as Y from "yjs";
 import { DATA_DIR } from "./config";
@@ -151,7 +151,7 @@ export class Board {
       this.scheduleRecompute();
       const touched = new Set<string>();
       for (const k of event.keysChanged) {
-        const id = sinapsiData(this.elements.get(k) ?? {})?.drawingId;
+        const id = livingboardData(this.elements.get(k) ?? {})?.drawingId;
         if (id) touched.add(id);
       }
       if (!touched.size) return;
@@ -187,14 +187,37 @@ export class Board {
     } catch (err) {
       console.error(`[board:${this.name}] cannot load`, err);
     }
+    this.migrateLegacyData();
+  }
+
+  /** Boards saved before the rename to Livingboard keep the agent's marks under `customData.sinapsi`. */
+  private migrateLegacyData() {
+    this.doc.transact(() => {
+      for (const [id, el] of this.elements.entries()) {
+        const data = (el as El & { customData?: Record<string, unknown> }).customData;
+        if (!data || !("sinapsi" in data)) continue;
+        const { sinapsi, ...rest } = data;
+        this.elements.set(id, {
+          ...el,
+          customData: { ...rest, livingboard: rest.livingboard ?? sinapsi },
+          version: el.version + 1,
+          versionNonce: Math.floor(Math.random() * 2 ** 31),
+        } as El);
+      }
+    }, SERVER);
   }
 
   private scheduleSave() {
     if (this.saveTimer) return;
     this.saveTimer = setTimeout(() => {
       this.saveTimer = null;
-      mkdirSync(dirname(this.file), { recursive: true });
-      writeFileSync(this.file, Y.encodeStateAsUpdate(this.doc));
+      // A folder that can't be written (bad project path, permissions) must not take the server down.
+      try {
+        mkdirSync(dirname(this.file), { recursive: true });
+        writeFileSync(this.file, Y.encodeStateAsUpdate(this.doc));
+      } catch (err) {
+        console.error(`[board:${this.name}] cannot save`, err);
+      }
     }, 1000);
   }
 
@@ -654,7 +677,7 @@ export class Board {
       const norm = (t: string) => t.toLowerCase().replace(/\s+/g, " ");
       const needle = norm(match.trim());
       for (const e of this.liveElements()) {
-        if (e.type !== "text" || sinapsiData(e)?.kind === "permission") continue;
+        if (e.type !== "text" || livingboardData(e)?.kind === "permission") continue;
         if (norm(e.text ?? "").includes(needle)) out.set(e.id, e);
       }
     }
@@ -738,7 +761,7 @@ export class Board {
   private drawingGroups(withDeleted = false) {
     const out = new Map<string, El[]>();
     for (const e of this.elements.values()) {
-      const id = sinapsiData(e)?.drawingId;
+      const id = livingboardData(e)?.drawingId;
       if (!id || (!withDeleted && e.isDeleted)) continue;
       const list = out.get(id) ?? [];
       list.push(e);
@@ -748,7 +771,7 @@ export class Board {
   }
 
   private describeDrawing(id: string, els: El[]): DrawingInfo {
-    const meta = sinapsiData(els[0]) ?? { author: "ai" as const };
+    const meta = livingboardData(els[0]) ?? { author: "ai" as const };
     const live = els.filter((e) => !e.isDeleted);
     const b = live.length ? unionBBox(live.map(elementBBox)) : { x: 0, y: 0, w: 0, h: 0 };
     return {
@@ -866,7 +889,7 @@ export class Board {
   proposeLayout(title: string, by: LayoutProposal["by"]) {
     const attached = new Map<string, ReturnType<typeof elementBBox>[]>();
     for (const e of this.liveElements()) {
-      const owner = isAiAuthored(e) && e.type !== "arrow" ? sinapsiData(e)?.nodeId : undefined;
+      const owner = isAiAuthored(e) && e.type !== "arrow" ? livingboardData(e)?.nodeId : undefined;
       if (owner) attached.set(owner, [...(attached.get(owner) ?? []), elementBBox(e)]);
     }
     const nodes = [...this.candidates.values()]
@@ -880,7 +903,7 @@ export class Board {
     const fixed = [
       ...nodes.filter((n) => !linked.has(n.id)).map((n) => n.bbox),
       ...this.liveElements()
-        .filter((e) => isAiAuthored(e) && !linked.has(sinapsiData(e)?.nodeId ?? ""))
+        .filter((e) => isAiAuthored(e) && !linked.has(livingboardData(e)?.nodeId ?? ""))
         .map(elementBBox),
     ];
     const moves = treeLayout(nodes, edges, fixed);

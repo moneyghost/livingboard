@@ -10,10 +10,10 @@ import {
   type OntologyType,
   type SavedView,
   type Settings,
-  sinapsiData,
+  livingboardData,
   type ViewDef,
   viewMatches,
-} from "@sinapsi/shared";
+} from "@livingboard/shared";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { BoardModel } from "./board";
 import {
@@ -132,7 +132,7 @@ export function Overlay({ model, board, viewport: v, lens, selection, onFocus, s
       if (el.isDeleted) continue;
       const b = elementBBox(el as Parameters<typeof elementBBox>[0]);
       occ.push(b);
-      const s = sinapsiData(el as { customData?: Record<string, unknown> });
+      const s = livingboardData(el as { customData?: Record<string, unknown> });
       if (!s?.ghost || !s.ghostGroup) continue;
       const list = groups.get(s.ghostGroup) ?? [];
       list.push(b);
@@ -163,7 +163,7 @@ export function Overlay({ model, board, viewport: v, lens, selection, onFocus, s
       if (linear && "points" in el && el.points) {
         const pts = el.points.filter((_, i, all) => i % 4 === 0 || i === all.length - 1).map(([px, py]) => toScreenPt(el.x + px, el.y + py));
         for (let i = 1; i < pts.length; i++) segs.push([pts[i - 1], pts[i]]);
-      } else if (sinapsiData(el as { customData?: Record<string, unknown> })?.author === "ai") {
+      } else if (livingboardData(el as { customData?: Record<string, unknown> })?.author === "ai") {
         const b = elementBBox(el as Parameters<typeof elementBBox>[0]);
         const r = toScreen(b, v);
         aiRects.push({ x: r.left, y: r.top, w: r.width, h: r.height });

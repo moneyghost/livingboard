@@ -9,7 +9,7 @@ import type {
   ExcalidrawInitialDataState,
   SocketId,
 } from "@excalidraw/excalidraw/types";
-import { AI_COLOR, type BoardFile, DOC, MAX_IMAGE_BYTES, sinapsiData } from "@sinapsi/shared";
+import { AI_COLOR, type BoardFile, DOC, MAX_IMAGE_BYTES, livingboardData } from "@livingboard/shared";
 import { generateKeyBetween } from "fractional-indexing";
 import { WebsocketProvider } from "y-websocket";
 import * as Y from "yjs";
@@ -38,7 +38,7 @@ const WEB_FONTS = new Map<number, string>(
     .map(([name, id]) => [id as number, name]),
 );
 
-const isAi = (el: El) => !!sinapsiData(el as { customData?: Record<string, unknown> });
+const isAi = (el: El) => !!livingboardData(el as { customData?: Record<string, unknown> });
 
 const indexOk = new Map<string, boolean>();
 /**
@@ -168,7 +168,7 @@ export class Collab {
       for (const f of fresh) {
         // base64 is 4/3 of the bytes: past the cap the board would get heavy for everyone.
         if (f.dataURL.length * 0.75 > MAX_IMAGE_BYTES) {
-          console.warn(`Sinapsi: immagine ${f.id} troppo grande per la condivisione`);
+          console.warn(`Livingboard: immagine ${f.id} troppo grande per la condivisione`);
           continue;
         }
         this.files.set(f.id, { id: f.id, mimeType: f.mimeType, dataURL: f.dataURL, created: f.created });

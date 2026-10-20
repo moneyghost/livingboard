@@ -1,24 +1,24 @@
-# ✳ Sinapsi
+# ✳ Livingboard
 
 Lavagna collaborativa open source che fa da **prompt vivo** per un progetto costruito con l'AI.
 
-Con un prompt testuale dai un'istruzione, ricevi un risultato, e dopo un'ora di chat la visione d'insieme è persa nello scroll. In Sinapsi il prompt è la lavagna: la disegni, Claude la legge, costruisce, e riporta sulla lavagna quello che ha fatto (schermate, tabelle, schemi, screenshot). Persone e Claude la modificano entrambi, nel tempo, e **lavagna e progetto corrispondono sempre**: cambi una cella della tabella di Claude e Claude cambia il progetto; Claude cambia il progetto e aggiorna il disegno.
+Con un prompt testuale dai un'istruzione, ricevi un risultato, e dopo un'ora di chat la visione d'insieme è persa nello scroll. In Livingboard il prompt è la lavagna: la disegni, Claude la legge, costruisce, e riporta sulla lavagna quello che ha fatto (schermate, tabelle, schemi, screenshot). Persone e Claude la modificano entrambi, nel tempo, e **lavagna e progetto corrispondono sempre**: cambi una cella della tabella di Claude e Claude cambia il progetto; Claude cambia il progetto e aggiorna il disegno.
 
 Il collegamento con l'AI passa da **MCP**, quindi funziona con Claude Code o con qualsiasi client MCP.
 
 > Esempio: disegni un'app con riquadri, frecce e uno schizzo. Claude riconosce funzioni e dati, risponde alle domande `@AI` con un messaggio sulla lavagna, disegna accanto la prima schermata e la tabella degli avvisi, costruisce il progetto nella sua cartella e tiene tutto aggiornato.
 
-**Quando conviene (e quando no).** La lavagna vince quando la posizione è il contenuto (schermate, flussi, mappe, architetture), quando il progetto dura settimane e va capito con un'occhiata, quando si lavora in più persone, quando si confronta o si dà priorità (tabelle, matrici), con penna e tablet. Per bug, refactoring, regole precise e numeri il testo resta più veloce: Sinapsi non lo sostituisce, gli dà una mappa.
+**Quando conviene (e quando no).** La lavagna vince quando la posizione è il contenuto (schermate, flussi, mappe, architetture), quando il progetto dura settimane e va capito con un'occhiata, quando si lavora in più persone, quando si confronta o si dà priorità (tabelle, matrici), con penna e tablet. Per bug, refactoring, regole precise e numeri il testo resta più veloce: Livingboard non lo sostituisce, gli dà una mappa.
 
-Sinapsi non sa niente di nessun dominio: niente plugin per giochi, app o documenti. Il dominio lo porta l'agente (e la cartella in cui lavora); la lavagna offre solo strumenti generici per leggere, disegnare e mostrare immagini.
+Livingboard non sa niente di nessun dominio: niente plugin per giochi, app o documenti. Il dominio lo porta l'agente (e la cartella in cui lavora); la lavagna offre solo strumenti generici per leggere, disegnare e mostrare immagini.
 
 ## Avvio rapido
 
-Una volta sola, dalla cartella di Sinapsi:
+Una volta sola, dalla cartella di Livingboard:
 
 ```bash
 pnpm install
-pnpm sinapsi install
+pnpm livingboard install
 ```
 
 Poi in **qualsiasi progetto**, in una nuova sessione di Claude Code:
@@ -28,23 +28,23 @@ Poi in **qualsiasi progetto**, in una nuova sessione di Claude Code:
 /whiteboard ui       un'altra lavagna dello stesso progetto
 ```
 
-Claude apre la lavagna nel browser e ci lavora. Non serve avviare niente a mano: il server parte da solo alla prima chiamata e resta acceso per tutti i progetti. Le lavagne di un progetto si salvano **nel progetto**, in `.sinapsi/boards/<nome>.ydoc`, così viaggiano e si versionano con il codice. Per il tablet: `pnpm sinapsi install --lan` (il server diventa visibile in rete; `open_board` restituisce anche gli indirizzi per l'iPad).
+Claude apre la lavagna nel browser e ci lavora. Non serve avviare niente a mano: il server parte da solo alla prima chiamata e resta acceso per tutti i progetti. Le lavagne di un progetto si salvano **nel progetto**, in `.livingboard/boards/<nome>.ydoc`, così viaggiano e si versionano con il codice. Per il tablet: `pnpm livingboard install --lan` (il server diventa visibile in rete; `open_board` restituisce anche gli indirizzi per l'iPad).
 
-Cosa installa `pnpm sinapsi install` (scope utente, `pnpm sinapsi uninstall` lo toglie):
+Cosa installa `pnpm livingboard install` (scope utente, `pnpm livingboard uninstall` lo toglie):
 
-- il server MCP `sinapsi` (un ponte stdio che Claude Code avvia nella cartella del progetto: la cartella decide il progetto). Costa poco nei progetti dove non usi la lavagna: due righe di istruzioni e i nomi dei tool (circa 300 token per sessione con il caricamento dei tool su richiesta); le regole complete arrivano solo con `open_board`;
+- il server MCP `livingboard` (un ponte stdio che Claude Code avvia nella cartella del progetto: la cartella decide il progetto). Costa poco nei progetti dove non usi la lavagna: due righe di istruzioni e i nomi dei tool (circa 300 token per sessione con il caricamento dei tool su richiesta); le regole complete arrivano solo con `open_board`;
 - la skill `/whiteboard` in `~/.claude/skills/whiteboard/`;
 - un hook `UserPromptSubmit` in `~/.claude/settings.json`: a ogni messaggio, se sulla lavagna del progetto è cambiato qualcosa dall'ultimo messaggio, Claude lo sa (una riga di contesto, nessuna attesa se il server è spento).
 
 Con la lavagna vuota c'è il pulsante **Carica l'esempio: app meteo**.
 
-Per sviluppare Sinapsi: `pnpm dev` (lavagna su http://localhost:5180, in rete con `pnpm dev:lan`). Il ponte usa il server di sviluppo se è già acceso. Lavagne globali, fuori da un progetto: `claude mcp add --transport http sinapsi http://localhost:3333/mcp` e `/mcp__sinapsi__start`.
+Per sviluppare Livingboard: `pnpm dev` (lavagna su http://localhost:5180, in rete con `pnpm dev:lan`). Il ponte usa il server di sviluppo se è già acceso. Lavagne globali, fuori da un progetto: `claude mcp add --transport http livingboard http://localhost:3333/mcp` e `/mcp__livingboard__start`.
 Senza Claude puoi verificare il ciclo con un agente finto: `pnpm smoke`.
 
 ## Come funziona
 
 ```
- browser (Excalidraw)  ──Yjs──►  server Sinapsi  ──MCP──►  Claude Code
+ browser (Excalidraw)  ──Yjs──►  server Livingboard  ──MCP──►  Claude Code
    tratti, forme, testo            │                         │
    lente AI (overlay)  ◄──Yjs──    ├ segmentazione           ├ wait_for_changes
    viste interattive               ├ attenzione (maturazione)├ get_board_image (vision)
@@ -94,7 +94,7 @@ Ogni disegno ha un `drawingId`. Quando il progetto cambia Claude lo **ridisegna 
 ### Immagini
 
 - **Dalle persone**: incolla o trascina un'immagine (su iPad c'è il pulsante 🖼 nel dock) e arriva a tutti i partecipanti. L'agente la vede nel contesto con `get_board_image` e a piena risoluzione con `get_image`.
-- **Dall'agente**: `add_image` mette sulla lavagna uno screenshot di ciò che ha costruito, un render o una foto di riferimento, accanto al nodo a cui si riferisce (e lo segue nel riordino). Con `replace` aggiorna la stessa immagine a ogni nuova versione invece di accumularne copie. Come fare lo screenshot (browser, emulatore, gioco...) è affare dell'agente e dei suoi strumenti, non di Sinapsi.
+- **Dall'agente**: `add_image` mette sulla lavagna uno screenshot di ciò che ha costruito, un render o una foto di riferimento, accanto al nodo a cui si riferisce (e lo segue nel riordino). Con `replace` aggiorna la stessa immagine a ogni nuova versione invece di accumularne copie. Come fare lo screenshot (browser, emulatore, gioco...) è affare dell'agente e dei suoi strumenti, non di Livingboard.
 - Formati PNG, JPEG, GIF, WebP e SVG, max 4 MB l'una; la stessa immagine è salvata una volta sola.
 
 ### Come lavora l'AI
@@ -141,18 +141,18 @@ Ogni disegno ha un `drawingId`. Quando il progetto cambia Claude lo **ridisegna 
 | `merge_nodes` | unisce più candidati in un'idea |
 | `inspect` | dettaglio completo di un candidato |
 
-Prompt MCP: `start` (in Claude Code `/mcp__sinapsi__start`).
+Prompt MCP: `start` (in Claude Code `/mcp__livingboard__start`).
 
 ### Viste interattive (le "estensioni")
 
-Un'estensione è una **vista**: una piccola app HTML che l'AI genera al volo e attacca a un nodo, ad esempio una scheda con slider o una piccola tabella modificabile. Gira in un iframe sandbox (solo script, niente rete) e riceve un oggetto `sinapsi`:
+Un'estensione è una **vista**: una piccola app HTML che l'AI genera al volo e attacca a un nodo, ad esempio una scheda con slider o una piccola tabella modificabile. Gira in un iframe sandbox (solo script, niente rete) e riceve un oggetto `livingboard`:
 
 ```js
-sinapsi.node          // { id, type, label }
-sinapsi.props         // proprietà del nodo
-sinapsi.onProps(fn)   // fn(props) subito e a ogni modifica
-sinapsi.update(patch) // scrive nelle props; l'agente lo riceve come feedback "view-edit"
-sinapsi.resize(h)     // altezza della card (anche automatica)
+livingboard.node          // { id, type, label }
+livingboard.props         // proprietà del nodo
+livingboard.onProps(fn)   // fn(props) subito e a ogni modifica
+livingboard.update(patch) // scrive nelle props; l'agente lo riceve come feedback "view-edit"
+livingboard.resize(h)     // altezza della card (anche automatica)
 ```
 
 La card si trascina dall'intestazione e la posizione è condivisa con tutti.
@@ -170,16 +170,16 @@ demo/minecraft-pack  esempio d'uso: un add-on Minecraft costruito da Claude a pa
 
 Utili:
 
-- `pnpm --filter @sinapsi/server exec tsx scripts/mcp.ts call board_overview`: client MCP da terminale (`@file.json` per argomenti lunghi, `--out` per salvare le immagini).
-- Lavagne di un progetto: `?p=<id progetto>&board=nome` (l'id è nome della cartella + hash del percorso, registrato in `data/projects.json`); file in `<progetto>/.sinapsi/boards/`. Lavagne globali: `?board=nome`, file in `data/<nome>.ydoc`.
-- `pnpm --filter @sinapsi/server exec tsx scripts/bridge-smoke.ts <cartella> [lavagna]`: parla col ponte stdio come Claude Code.
+- `pnpm --filter @livingboard/server exec tsx scripts/mcp.ts call board_overview`: client MCP da terminale (`@file.json` per argomenti lunghi, `--out` per salvare le immagini).
+- Lavagne di un progetto: `?p=<id progetto>&board=nome` (l'id è nome della cartella + hash del percorso, registrato in `data/projects.json`); file in `<progetto>/.livingboard/boards/`. Lavagne globali: `?board=nome`, file in `data/<nome>.ydoc`.
+- `pnpm --filter @livingboard/server exec tsx scripts/bridge-smoke.ts <cartella> [lavagna]`: parla col ponte stdio come Claude Code.
 - Il server avviato dal ponte scrive il log in `data/server.log`.
 - `pnpm build && pnpm start`: un solo processo su http://localhost:3333 (lavagna + MCP).
-- `SINAPSI_PORT`, `SINAPSI_HOST`, `SINAPSI_DATA` per porta, interfaccia e cartella dati.
+- `LIVINGBOARD_PORT`, `LIVINGBOARD_HOST`, `LIVINGBOARD_DATA` per porta, interfaccia e cartella dati.
 
 ## Sicurezza
 
-Il server ascolta solo su `127.0.0.1` e rifiuta richieste dal browser con origini estranee. Non c'è autenticazione: se lo esponi in rete (`SINAPSI_HOST=0.0.0.0`) chiunque possa raggiungerlo può modificare la lavagna e parlare con l'agente. Solo un agente sullo stesso computer può dire a quale cartella di progetto appartiene (`x-sinapsi-project`), perché il server scrive lì le lavagne; il browser apre la lavagna di un progetto solo se quel progetto è già stato registrato da un agente locale. `add_image` legge file per percorso solo se l'agente è sullo stesso computer del server (chi arriva dalla rete può passare solo url o base64), e accetta solo file che sono davvero immagini. Il contenuto della lavagna arriva all'agente come dato, ma i permessi (sola lettura / chiedi) restano la difesa principale quando collabori con persone di cui non ti fidi.
+Il server ascolta solo su `127.0.0.1` e rifiuta richieste dal browser con origini estranee. Non c'è autenticazione: se lo esponi in rete (`LIVINGBOARD_HOST=0.0.0.0`) chiunque possa raggiungerlo può modificare la lavagna e parlare con l'agente. Solo un agente sullo stesso computer può dire a quale cartella di progetto appartiene (`x-livingboard-project`), perché il server scrive lì le lavagne; il browser apre la lavagna di un progetto solo se quel progetto è già stato registrato da un agente locale. `add_image` legge file per percorso solo se l'agente è sullo stesso computer del server (chi arriva dalla rete può passare solo url o base64), e accetta solo file che sono davvero immagini. Il contenuto della lavagna arriva all'agente come dato, ma i permessi (sola lettura / chiedi) restano la difesa principale quando collabori con persone di cui non ti fidi.
 
 ## Limiti noti
 

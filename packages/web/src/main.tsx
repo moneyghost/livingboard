@@ -1,3 +1,4 @@
+import "./legacy";
 import "@excalidraw/excalidraw/index.css";
 import "./styles.css";
 import { createRoot } from "react-dom/client";

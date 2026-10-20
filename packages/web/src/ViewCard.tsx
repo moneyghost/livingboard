@@ -1,4 +1,4 @@
-import type { AINode, ViewDef } from "@sinapsi/shared";
+import type { AINode, ViewDef } from "@livingboard/shared";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { saveView } from "./registry";
 
@@ -14,9 +14,9 @@ const safeJson = (v: unknown) => JSON.stringify(v ?? null).replace(/</g, "\\u003
 function bridge(node: AINode) {
   return `<script>(function(){var ls=[];var s={node:${safeJson({ id: node.id, type: node.type, label: node.label })},props:${safeJson(node.props)},
 onProps:function(fn){ls.push(fn);try{fn(s.props)}catch(e){console.error(e)}},
-update:function(p){s.props=Object.assign({},s.props,p);parent.postMessage({__sinapsi:1,type:'update',patch:p},'*')},
-resize:function(h){parent.postMessage({__sinapsi:1,type:'resize',height:h},'*')}};
-window.sinapsi=s;window.addEventListener('message',function(e){var d=e.data;if(!d||!d.__sinapsi||d.type!=='props')return;s.node=d.node;s.props=d.props;ls.forEach(function(fn){try{fn(d.props)}catch(err){console.error(err)}})});
+update:function(p){s.props=Object.assign({},s.props,p);parent.postMessage({__livingboard:1,type:'update',patch:p},'*')},
+resize:function(h){parent.postMessage({__livingboard:1,type:'resize',height:h},'*')}};
+window.livingboard=window.sinapsi=s;window.addEventListener('message',function(e){var d=e.data;if(!d||!d.__livingboard||d.type!=='props')return;s.node=d.node;s.props=d.props;ls.forEach(function(fn){try{fn(d.props)}catch(err){console.error(err)}})});
 addEventListener('DOMContentLoaded',function(){var last=0;new ResizeObserver(function(){var h=Math.ceil(document.documentElement.scrollHeight);if(Math.abs(h-last)>2){last=h;s.resize(h)}}).observe(document.body)});})();</script>`;
 }
 
@@ -130,7 +130,7 @@ export function ViewCard({ view, node, color, left, top, zoom, offset, onEdit, o
 
   useEffect(() => {
     frame.current?.contentWindow?.postMessage(
-      { __sinapsi: 1, type: "props", props: node.props, node: { id: node.id, type: node.type, label: node.label } },
+      { __livingboard: 1, type: "props", props: node.props, node: { id: node.id, type: node.type, label: node.label } },
       "*",
     );
   }, [node.props, node.id, node.type, node.label]);
@@ -138,8 +138,8 @@ export function ViewCard({ view, node, color, left, top, zoom, offset, onEdit, o
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       if (e.source !== frame.current?.contentWindow) return;
-      const d = e.data as { __sinapsi?: number; type?: string; patch?: Record<string, unknown>; height?: number };
-      if (!d?.__sinapsi) return;
+      const d = e.data as { __livingboard?: number; type?: string; patch?: Record<string, unknown>; height?: number };
+      if (!d?.__livingboard) return;
       if (d.type === "update" && d.patch && typeof d.patch === "object") onEdit(d.patch);
       if (d.type === "resize" && typeof d.height === "number") setHeight(Math.min(900, Math.max(80, d.height)));
     };

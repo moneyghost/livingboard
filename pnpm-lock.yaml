@@ -171,7 +171,7 @@ importers:
       '@modelcontextprotocol/sdk':
         specifier: ^1.32.1
         version: 1.32.1(zod@4.6.7)
-      '@sinapsi/shared':
+      '@livingboard/shared':
         specifier: workspace:*
         version: link:../shared
       fractional-indexing:
@@ -220,7 +220,7 @@ importers:
       '@excalidraw/mermaid-to-excalidraw':
         specifier: 2.2.2
         version: 2.2.2
-      '@sinapsi/shared':
+      '@livingboard/shared':
         specifier: workspace:*
         version: link:../shared
       fractional-indexing:

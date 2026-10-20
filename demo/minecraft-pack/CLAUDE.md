@@ -1,11 +1,11 @@
-# Add-on Minecraft Bedrock costruito da una lavagna Sinapsi
+# Add-on Minecraft Bedrock costruito da una lavagna Livingboard
 
 Questa cartella è il cantiere: chi disegna sulla lavagna descrive la mod, tu la costruisci qui.
-Il server MCP `sinapsi` (vedi `.mcp.json`) ti collega alla lavagna.
+Il server MCP `livingboard` (vedi `.mcp.json`) ti collega alla lavagna.
 
 ## Avvio
 
-Esegui `/mcp__sinapsi__start` con goal "costruisci l'add-on Bedrock in questa cartella", poi resta nel ciclo
+Esegui `/mcp__livingboard__start` con goal "costruisci l'add-on Bedrock in questa cartella", poi resta nel ciclo
 `wait_for_changes → interpret → costruisci → set_status → wait_for_changes`. Le domande per gli umani vanno
 sulla lavagna con `comment`, non in chat.
 
@@ -19,7 +19,7 @@ sulla lavagna con `comment`, non in chat.
 | bioma collegato con "spawna in" | `*_BP/spawn_rules/<mob>.json` (filtro sui biome tag) |
 | relazione "drops" | pool nella loot table del mob di partenza |
 
-- Namespace `sinapsi:`; usa `props.identifier` del nodo quando c'è.
+- Namespace `livingboard:`; usa `props.identifier` del nodo quando c'è.
 - Nomi tradotti in `*_RP/texts/en_US.lang` e `it_IT.lang`.
 - Grafica mancante: usa modelli e texture vanilla come segnaposto e scrivilo nelle `assumptions`.
 - Prima di lavorare su un nodo `set_status(building)`, dopo `set_status(done, files)` con percorsi relativi

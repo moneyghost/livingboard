@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * Claude Code UserPromptSubmit hook (installed by `sinapsi install`).
+ * Claude Code UserPromptSubmit hook (installed by `livingboard install`).
  *
- * Before each prompt, asks the Sinapsi server what changed on this project's
+ * Before each prompt, asks the Livingboard server what changed on this project's
  * open boards since the last prompt of this session, and adds one line of
  * context if anything did. Plain JavaScript and no imports beyond Node: it
  * runs on every prompt, in every project, so it must be quick and silent.
@@ -10,13 +10,14 @@
 import { existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
-const PORT = Number(process.env.SINAPSI_PORT ?? 3333);
+const PORT = Number(process.env.LIVINGBOARD_PORT ?? 3333);
 
-/** Nearest folder with Sinapsi boards (the bridge saved them there). Mirrors `projectRoot` in src/cli.ts. */
+/** Nearest folder with Livingboard boards (the bridge saved them there). Mirrors `projectRoot` in src/cli.ts. */
 function boardsRoot(start) {
-  if (process.env.SINAPSI_PROJECT) return process.env.SINAPSI_PROJECT;
+  if (process.env.LIVINGBOARD_PROJECT) return process.env.LIVINGBOARD_PROJECT;
   for (let d = resolve(start); ; d = dirname(d)) {
-    if (existsSync(join(d, ".sinapsi", "boards"))) return d;
+    // `.sinapsi`: projects from before the rename (the server moves them on first use).
+    if (existsSync(join(d, ".livingboard", "boards")) || existsSync(join(d, ".sinapsi", "boards"))) return d;
     if (dirname(d) === d) return null;
   }
 }
@@ -56,7 +57,7 @@ async function main() {
       b.removed && plural(b.removed, "cosa cancellata", "cose cancellate"),
     ].filter(Boolean);
     console.log(
-      `Sinapsi · novità sulla lavagna "${b.board}" di questo progetto: ${parts.join(", ")}. ` +
+      `Livingboard · novità sulla lavagna "${b.board}" di questo progetto: ${parts.join(", ")}. ` +
         `Se c'entrano con la richiesta, leggile con wait_for_changes(board: "${b.board}", timeoutSec: 1) prima di rispondere (se in questa sessione non l'hai ancora aperta, prima open_board: ti dà le regole), e tieni lavagna e progetto allineati.`,
     );
   }

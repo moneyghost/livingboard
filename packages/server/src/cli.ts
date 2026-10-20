@@ -1,13 +1,13 @@
 /**
- * `sinapsi` command line.
+ * `livingboard` command line.
  *
- *   sinapsi mcp                stdio MCP server for Claude Code (the bridge)
- *   sinapsi install [--lan]    /whiteboard skill + MCP bridge + prompt hook, for every project
- *   sinapsi uninstall
+ *   livingboard mcp                stdio MCP server for Claude Code (the bridge)
+ *   livingboard install [--lan]    /whiteboard skill + MCP bridge + prompt hook, for every project
+ *   livingboard uninstall
  *
  * The bridge is what Claude Code starts in a project folder. It answers the
  * tool list by itself (so it costs nothing until used), and on the first tool
- * call starts the shared Sinapsi server if needed and forwards every call to
+ * call starts the shared Livingboard server if needed and forwards every call to
  * it, telling it which project folder it works for.
  */
 import { spawn, spawnSync } from "node:child_process";
@@ -28,7 +28,7 @@ const SERVER_DIR = resolve(import.meta.dirname, "..");
 const REPO = resolve(SERVER_DIR, "..", "..");
 const BASE = `http://127.0.0.1:${PORT}`;
 const VERSION = "0.1.0";
-const log = (...a: unknown[]) => console.error("[sinapsi]", ...a);
+const log = (...a: unknown[]) => console.error("[livingboard]", ...a);
 // Through the package's own node_modules link (not the store path): survives reinstalls.
 const TSX = pathToFileURL(join(SERVER_DIR, "node_modules", "tsx", "dist", "loader.mjs")).href;
 
@@ -36,8 +36,8 @@ const TSX = pathToFileURL(join(SERVER_DIR, "node_modules", "tsx", "dist", "loade
 
 /**
  * The project a session works in: the nearest folder (from where Claude Code
- * runs) that already has Sinapsi boards, else the git root, else the folder itself.
- * Keep in sync with `bin/sinapsi-hook.mjs`.
+ * runs) that already has Livingboard boards, else the git root, else the folder itself.
+ * Keep in sync with `bin/livingboard-hook.mjs`.
  */
 function projectRoot(start: string): string {
   const up = (dir: string, marker: string): string | null => {
@@ -46,7 +46,7 @@ function projectRoot(start: string): string {
       if (dirname(d) === d) return null;
     }
   };
-  return process.env.SINAPSI_PROJECT || up(start, ".sinapsi") || up(start, ".git") || resolve(start);
+  return process.env.LIVINGBOARD_PROJECT || up(start, ".livingboard") || up(start, ".sinapsi") || up(start, ".git") || resolve(start);
 }
 
 // ------------------------------------------------------------------ server
@@ -54,7 +54,7 @@ function projectRoot(start: string): string {
 async function healthy(): Promise<boolean> {
   try {
     const r = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(1000) });
-    return ((await r.json()) as { app?: string }).app === "sinapsi";
+    return ((await r.json()) as { app?: string }).app === "livingboard";
   } catch {
     return false;
   }
@@ -82,7 +82,7 @@ function ensureServer(): Promise<void> {
       await new Promise((r) => setTimeout(r, 250));
       if (await healthy()) return;
     }
-    throw new Error(`Il server Sinapsi non risponde su ${BASE}: guarda ${logFile} (porta ${PORT} occupata?).`);
+    throw new Error(`Il server Livingboard non risponde su ${BASE}: guarda ${logFile} (porta ${PORT} occupata?).`);
   })().finally(() => {
     starting = null;
   });
@@ -97,7 +97,7 @@ async function bridge() {
   // Tool list, prompts and instructions come from the same code the server runs,
   // in process: Claude Code sees the tools before any server is up. Instructions
   // are the brief version (every session pays for them); open_board returns the rules.
-  const catalog = new Client({ name: "sinapsi-catalog", version: VERSION });
+  const catalog = new Client({ name: "livingboard-catalog", version: VERSION });
   const [a, b] = InMemoryTransport.createLinkedPair();
   await createMcpServer({ local: true, brief: true }).connect(a);
   await catalog.connect(b);
@@ -106,16 +106,16 @@ async function bridge() {
   let remote: Client | null = null;
   const connect = async () => {
     await ensureServer();
-    const c = new Client({ name: "sinapsi-bridge", version: VERSION });
+    const c = new Client({ name: "livingboard-bridge", version: VERSION });
     await c.connect(
       new StreamableHTTPClientTransport(new URL(`${BASE}/mcp`), {
-        requestInit: { headers: { "x-sinapsi-project": encodeURIComponent(root) } },
+        requestInit: { headers: { "x-livingboard-project": encodeURIComponent(root) } },
       }),
     );
     return c;
   };
 
-  const server = new Server({ name: "sinapsi", version: VERSION }, { capabilities: { tools: {}, prompts: {} }, instructions });
+  const server = new Server({ name: "livingboard", version: VERSION }, { capabilities: { tools: {}, prompts: {} }, instructions });
   server.setRequestHandler(ListToolsRequestSchema, () => catalog.listTools());
   server.setRequestHandler(ListPromptsRequestSchema, () => catalog.listPrompts());
   server.setRequestHandler(GetPromptRequestSchema, (req) => catalog.getPrompt(req.params));
@@ -146,18 +146,18 @@ async function bridge() {
 const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), ".claude");
 const SKILL_DIR = join(CLAUDE_DIR, "skills", "whiteboard");
 const SETTINGS = join(CLAUDE_DIR, "settings.json");
-const HOOK = join(SERVER_DIR, "bin", "sinapsi-hook.mjs");
-const HOOK_MARK = "sinapsi-hook.mjs";
+const HOOK = join(SERVER_DIR, "bin", "livingboard-hook.mjs");
+const HOOK_MARK = "livingboard-hook.mjs";
 
 const SKILL = `---
 name: whiteboard
-description: Apre la lavagna Sinapsi di questo progetto (lavagna condivisa che fa da prompt vivo del progetto) e ci lavora sopra. Usala quando l'utente scrive /whiteboard [nome] o chiede di aprire, guardare o usare la lavagna.
+description: Apre la lavagna Livingboard di questo progetto (lavagna condivisa che fa da prompt vivo del progetto) e ci lavora sopra. Usala quando l'utente scrive /whiteboard [nome] o chiede di aprire, guardare o usare la lavagna.
 argument-hint: "[nome]"
 ---
 
-Apri la lavagna Sinapsi "$ARGUMENTS" di questo progetto (se il nome è vuoto: "main").
+Apri la lavagna Livingboard "$ARGUMENTS" di questo progetto (se il nome è vuoto: "main").
 
-1. Chiama il tool \`open_board\` del server MCP \`sinapsi\` con \`board\` = il nome. Se i tool di sinapsi non sono ancora caricati, cercali (ToolSearch "sinapsi").
+1. Chiama il tool \`open_board\` del server MCP \`livingboard\` con \`board\` = il nome. Se i tool di livingboard non sono ancora caricati, cercali (ToolSearch "livingboard").
 2. Di' all'utente in una riga dove la trova: l'URL e, se ci sono, gli indirizzi \`lan\` per tablet. Se \`otherBoards\` non è vuoto, nominale.
 3. Leggi \`rules\` nella risposta di \`open_board\`: sono le regole di lavoro sulla lavagna e valgono per tutta la sessione. Poi chiama \`board_overview\` con lo stesso \`board\` e segui anche la sua policy.
 4. Da qui la lavagna è il prompt vivo del progetto: quando costruisci o cambi qualcosa, aggiorna i tuoi disegni (\`replace\`, \`erase\`). Se il contesto di un messaggio segnala novità sulla lavagna, leggile con \`wait_for_changes\` (\`timeoutSec\`: 1) prima di rispondere.
@@ -186,7 +186,7 @@ function setHook(on: boolean) {
   if (list.length) hooks.UserPromptSubmit = list;
   else delete hooks.UserPromptSubmit;
   s.hooks = hooks;
-  if (existsSync(SETTINGS)) writeFileSync(`${SETTINGS}.sinapsi-bak`, readFileSync(SETTINGS));
+  if (existsSync(SETTINGS)) writeFileSync(`${SETTINGS}.livingboard-bak`, readFileSync(SETTINGS));
   mkdirSync(CLAUDE_DIR, { recursive: true });
   writeFileSync(SETTINGS, `${JSON.stringify(s, null, 2)}\n`);
 }
@@ -200,34 +200,34 @@ function install(lan: boolean) {
   }
 
   // The bridge, for every project (user scope). `node --import tsx` runs the TypeScript sources.
-  run("claude", ["mcp", "remove", "sinapsi", "--scope", "user"], true);
-  const env = lan ? ["-e", "SINAPSI_HOST=0.0.0.0"] : [];
+  run("claude", ["mcp", "remove", "livingboard", "--scope", "user"], true);
+  const env = lan ? ["-e", "LIVINGBOARD_HOST=0.0.0.0"] : [];
   const cli = join(SERVER_DIR, "src", "cli.ts");
-  if (!run("claude", ["mcp", "add", "sinapsi", "--scope", "user", ...env, "--", "node", "--import", TSX, cli, "mcp"])) {
+  if (!run("claude", ["mcp", "add", "livingboard", "--scope", "user", ...env, "--", "node", "--import", TSX, cli, "mcp"])) {
     throw new Error("claude mcp add non riuscito.");
   }
-  console.log("✓ server MCP `sinapsi` (scope utente, avviato da Claude Code nella cartella del progetto)");
+  console.log("✓ server MCP `livingboard` (scope utente, avviato da Claude Code nella cartella del progetto)");
 
   mkdirSync(SKILL_DIR, { recursive: true });
   writeFileSync(join(SKILL_DIR, "SKILL.md"), SKILL);
   console.log(`✓ skill /whiteboard in ${SKILL_DIR}`);
 
   setHook(true);
-  console.log(`✓ hook UserPromptSubmit in ${SETTINGS} (copia di prima: settings.json.sinapsi-bak)`);
+  console.log(`✓ hook UserPromptSubmit in ${SETTINGS} (copia di prima: settings.json.livingboard-bak)`);
 
   console.log(`
 Fatto. In qualsiasi progetto, in una nuova sessione di Claude Code:
   /whiteboard          lavagna "main" del progetto
   /whiteboard ui       un'altra lavagna dello stesso progetto
-Le lavagne si salvano nel progetto, in .sinapsi/boards/.${lan ? "\nIl server sarà visibile in rete (tablet): nessuna autenticazione." : ""}
-Nota: dove esiste già un server MCP "sinapsi" di progetto o locale (es. vecchio HTTP), vince quello: toglilo con claude mcp remove sinapsi.`);
+Le lavagne si salvano nel progetto, in .livingboard/boards/.${lan ? "\nIl server sarà visibile in rete (tablet): nessuna autenticazione." : ""}
+Nota: dove esiste già un server MCP "livingboard" di progetto o locale (es. vecchio HTTP), vince quello: toglilo con claude mcp remove livingboard.`);
 }
 
 function uninstall() {
-  run("claude", ["mcp", "remove", "sinapsi", "--scope", "user"]);
+  run("claude", ["mcp", "remove", "livingboard", "--scope", "user"]);
   rmSync(SKILL_DIR, { recursive: true, force: true });
   if (existsSync(SETTINGS)) setHook(false);
-  console.log("✓ rimossi server MCP, skill /whiteboard e hook. Le lavagne nei progetti (.sinapsi/) restano.");
+  console.log("✓ rimossi server MCP, skill /whiteboard e hook. Le lavagne nei progetti (.livingboard/) restano.");
 }
 
 // ------------------------------------------------------------------ main
@@ -238,7 +238,7 @@ try {
   else if (cmd === "install") install(rest.includes("--lan"));
   else if (cmd === "uninstall") uninstall();
   else {
-    console.log("uso: sinapsi mcp | install [--lan] | uninstall");
+    console.log("uso: livingboard mcp | install [--lan] | uninstall");
     process.exitCode = cmd ? 1 : 0;
   }
 } catch (err) {

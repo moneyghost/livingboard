@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
-import { type BoardFile, MAX_IMAGE_BYTES } from "@sinapsi/shared";
+import { type BoardFile, MAX_IMAGE_BYTES } from "@livingboard/shared";
 
 export interface LoadedImage {
   file: BoardFile;

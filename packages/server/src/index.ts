@@ -44,12 +44,12 @@ function isLocal(req: IncomingMessage): boolean {
 }
 
 /**
- * The bridge (`sinapsi mcp`, started by Claude Code inside a project folder)
+ * The bridge (`livingboard mcp`, started by Claude Code inside a project folder)
  * says which project it works for. Only agents on this machine may: the folder
  * is where the server writes that project's boards.
  */
 function projectOf(req: IncomingMessage): Project | undefined {
-  const root = req.headers["x-sinapsi-project"];
+  const root = req.headers["x-livingboard-project"];
   if (typeof root !== "string" || !root || !isLocal(req)) return undefined;
   return registerProject(decodeURIComponent(root));
 }
@@ -155,7 +155,7 @@ async function handleDigest(req: IncomingMessage, res: ServerResponse) {
 function serveStatic(req: IncomingMessage, res: ServerResponse, pathname: string) {
   if (!existsSync(WEB_DIST)) {
     res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
-    res.end("Sinapsi server attivo. In sviluppo apri la lavagna su http://localhost:5180 (pnpm dev).");
+    res.end("Livingboard server attivo. In sviluppo apri la lavagna su http://localhost:5180 (pnpm dev).");
     return;
   }
   let file = normalize(join(WEB_DIST, decodeURIComponent(pathname)));
@@ -186,7 +186,7 @@ const http = createServer(async (req, res) => {
     const views = /^\/api\/views(?:\/([\w-]+))?\/?$/.exec(url.pathname);
     if (views) return await handleViews(req, res, views[1]);
     if (url.pathname === "/api/digest") return await handleDigest(req, res);
-    if (url.pathname === "/health") return json(res, 200, { ok: true, app: "sinapsi", dev: DEV });
+    if (url.pathname === "/health") return json(res, 200, { ok: true, app: "livingboard", dev: DEV });
     serveStatic(req, res, url.pathname);
   } catch (err) {
     console.error(err);
@@ -218,11 +218,11 @@ http.on("upgrade", (req, socket, head) => {
 });
 
 http.listen(PORT, HOST, () => {
-  console.log(`\n  ✳ Sinapsi server  http://${HOST}:${PORT}`);
+  console.log(`\n  ✳ Livingboard server  http://${HOST}:${PORT}`);
   if (HOST === "0.0.0.0") {
     for (const ip of lanAddresses()) console.log(`    In rete          http://${ip}:5180 (dev) · http://${ip}:${PORT} (build)`);
     console.log("    ⚠ Nessuna autenticazione: chiunque in questa rete può modificare la lavagna.");
   }
   console.log(`    MCP endpoint     http://${HOST}:${PORT}/mcp`);
-  console.log(`    Claude Code      pnpm sinapsi install, poi /whiteboard [nome] in qualsiasi progetto\n`);
+  console.log(`    Claude Code      pnpm livingboard install, poi /whiteboard [nome] in qualsiasi progetto\n`);
 });

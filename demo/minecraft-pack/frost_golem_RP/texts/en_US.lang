@@ -1,4 +1,4 @@
-entity.sinapsi:frost_golem.name=Frost Golem
-item.spawn_egg.entity.sinapsi:frost_golem.name=Spawn Frost Golem
-item.sinapsi:frost_shard.name=Frost Shard
-item.sinapsi:frost_sword.name=Frost Sword
+entity.livingboard:frost_golem.name=Frost Golem
+item.spawn_egg.entity.livingboard:frost_golem.name=Spawn Frost Golem
+item.livingboard:frost_shard.name=Frost Shard
+item.livingboard:frost_sword.name=Frost Sword

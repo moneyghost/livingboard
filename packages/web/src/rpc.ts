@@ -2,7 +2,7 @@ import { CaptureUpdateAction, convertToExcalidrawElements, exportToBlob, getComm
 import type { ExcalidrawElementSkeleton } from "@excalidraw/excalidraw/data/transform";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
-import type { BBox } from "@sinapsi/shared";
+import type { BBox } from "@livingboard/shared";
 import { generateKeyBetween, generateNKeysBetween } from "fractional-indexing";
 import { SERVER_HOST } from "./collab";
 import { elementBBox, findFreeSpot } from "./geometry";
@@ -84,7 +84,7 @@ async function drawMermaid(api: ExcalidrawImperativeAPI, msg: Extract<Msg, { typ
         index: keys[i],
         customData: {
           ...e.customData,
-          sinapsi: {
+          livingboard: {
             author: "ai",
             kind: "diagram",
             ...(msg.nodeId ? { nodeId: msg.nodeId } : {}),

@@ -6,7 +6,7 @@ export interface DevicePrefs {
   fingerDraw: boolean;
 }
 
-const KEY = "sinapsi:device";
+const KEY = "livingboard:device";
 
 export function detectTablet(): boolean {
   const q = new URLSearchParams(location.search).get("tablet");

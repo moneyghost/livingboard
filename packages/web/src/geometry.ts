@@ -1,4 +1,4 @@
-import type { BBox } from "@sinapsi/shared";
+import type { BBox } from "@livingboard/shared";
 
 export interface Viewport {
   scrollX: number;

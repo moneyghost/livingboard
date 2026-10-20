@@ -8,7 +8,7 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { type Candidate, DOC } from "@sinapsi/shared";
+import { type Candidate, DOC } from "@livingboard/shared";
 import * as Y from "yjs";
 import { DATA_DIR } from "../src/config";
 import { type El, elementBBox, segment } from "../src/segment";

@@ -1,4 +1,4 @@
-import type { Comment } from "@sinapsi/shared";
+import type { Comment } from "@livingboard/shared";
 import { useState } from "react";
 import type { BoardModel } from "./board";
 
@@ -7,7 +7,7 @@ const FRESH_MS = 6 * 60 * 60 * 1000;
 
 /** Per-device memory of which Claude messages this person has already read. */
 export function useReadMessages(board: string, comments: Iterable<Comment>) {
-  const key = `sinapsi:read:${board}`;
+  const key = `livingboard:read:${board}`;
   const [read, setRead] = useState<Set<string>>(() => {
     try {
       const raw = localStorage.getItem(key);

@@ -14,13 +14,13 @@ import { join, resolve } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
-const url = process.env.SINAPSI_MCP ?? "http://localhost:3333/mcp";
+const url = process.env.LIVINGBOARD_MCP ?? "http://localhost:3333/mcp";
 const args = process.argv.slice(2);
 const outIdx = args.indexOf("--out");
 const outDir = resolve(outIdx >= 0 ? args.splice(outIdx, 2)[1] : ".");
 const [cmd, tool, rawArgs] = args;
 
-const client = new Client({ name: "sinapsi-cli", version: "0.1.0" });
+const client = new Client({ name: "livingboard-cli", version: "0.1.0" });
 await client.connect(new StreamableHTTPClientTransport(new URL(url)));
 
 if (cmd === "list") {

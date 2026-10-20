@@ -1,5 +1,5 @@
 {
-  "name": "@sinapsi/web",
+  "name": "@livingboard/web",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -12,7 +12,7 @@
   "dependencies": {
     "@excalidraw/excalidraw": "0.18.1",
     "@excalidraw/mermaid-to-excalidraw": "2.2.2",
-    "@sinapsi/shared": "workspace:*",
+    "@livingboard/shared": "workspace:*",
     "fractional-indexing": "3.2.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

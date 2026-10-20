@@ -6,7 +6,7 @@ export interface Identity {
 const NAMES = ["Ada", "Bruno", "Carla", "Dario", "Elena", "Fabio", "Giulia", "Ivo", "Lucia", "Marco", "Nora", "Ottavio", "Paola", "Rita", "Sara", "Tito", "Vera"];
 const COLORS = ["#4c6ef5", "#12b886", "#e64980", "#7950f2", "#15aabf", "#40c057", "#fab005", "#228be6"];
 
-const KEY = "sinapsi:identity";
+const KEY = "livingboard:identity";
 
 export function loadIdentity(): Identity {
   try {

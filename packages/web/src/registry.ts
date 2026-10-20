@@ -1,4 +1,4 @@
-import type { SavedView } from "@sinapsi/shared";
+import type { SavedView } from "@livingboard/shared";
 import { useEffect, useState } from "react";
 import { SERVER_HOST } from "./collab";
 

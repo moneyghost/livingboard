@@ -1,5 +1,5 @@
 {
-  "name": "@sinapsi/server",
+  "name": "@livingboard/server",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
-    "@sinapsi/shared": "workspace:*",
+    "@livingboard/shared": "workspace:*",
     "fractional-indexing": "3.2.0",
     "lib0": "^0.2.119",
     "ws": "^8.22.0",

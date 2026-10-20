@@ -25,7 +25,7 @@ const project = params.get("p")?.trim() || null;
 const boardKey = project ? `${project}:${board}` : board;
 // The id is `<folder name>-<hash>`: the name alone is enough for people.
 const projectName = project?.replace(/-[0-9a-f]{6}$/, "") ?? null;
-document.title = projectName ? `${board} · ${projectName} · Sinapsi` : `${board} · Sinapsi`;
+document.title = projectName ? `${board} · ${projectName} · Livingboard` : `${board} · Livingboard`;
 const me = loadIdentity();
 
 export default function App() {
@@ -37,7 +37,7 @@ export default function App() {
   // The full AI lens is opt-in: by default the board shows drawings and Claude's messages only.
   const [lens, setLensState] = useState(() => {
     try {
-      return localStorage.getItem("sinapsi:lens") === "1";
+      return localStorage.getItem("livingboard:lens") === "1";
     } catch {
       return false;
     }
@@ -45,7 +45,7 @@ export default function App() {
   const setLens = (v: boolean) => {
     setLensState(v);
     try {
-      localStorage.setItem("sinapsi:lens", v ? "1" : "0");
+      localStorage.setItem("livingboard:lens", v ? "1" : "0");
     } catch {
       // ignore
     }
@@ -53,7 +53,7 @@ export default function App() {
   // Outlines around every idea are noise most of the time: off unless asked (remembered per device).
   const [showBoxes, setShowBoxesState] = useState(() => {
     try {
-      return localStorage.getItem("sinapsi:boxes") === "1";
+      return localStorage.getItem("livingboard:boxes") === "1";
     } catch {
       return false;
     }
@@ -61,7 +61,7 @@ export default function App() {
   const setShowBoxes = (v: boolean) => {
     setShowBoxesState(v);
     try {
-      localStorage.setItem("sinapsi:boxes", v ? "1" : "0");
+      localStorage.setItem("livingboard:boxes", v ? "1" : "0");
     } catch {
       // ignore
     }
@@ -175,13 +175,13 @@ export default function App() {
           }}
           isCollaborating
           langCode="it-IT"
-          name={projectName ? `${projectName} · ${board}` : `Sinapsi · ${board}`}
+          name={projectName ? `${projectName} · ${board}` : `Livingboard · ${board}`}
           UIOptions={{ canvasActions: { loadScene: false, saveToActiveFile: false } }}
         >
           <WelcomeScreen>
             <WelcomeScreen.Center>
               <WelcomeScreen.Center.Logo>
-                <span className="welcome-logo">✳ Sinapsi</span>
+                <span className="welcome-logo">✳ Livingboard</span>
               </WelcomeScreen.Center.Logo>
               <WelcomeScreen.Center.Heading>
                 Disegna un'idea. Claude la legge mentre disegni.

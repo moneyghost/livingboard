@@ -2,7 +2,7 @@
  * Talks to the stdio bridge exactly like Claude Code does: starts `cli.ts mcp`
  * in a project folder, lists the tools and calls a few of them.
  *
- *   pnpm --filter @sinapsi/server exec tsx scripts/bridge-smoke.ts <project folder> [board]
+ *   pnpm --filter @livingboard/server exec tsx scripts/bridge-smoke.ts <project folder> [board]
  */
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";

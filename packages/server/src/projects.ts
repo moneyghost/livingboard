@@ -1,11 +1,11 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { DATA_DIR } from "./config";
 
 /**
  * Boards can belong to a project: a folder on this machine (the one Claude Code
- * runs in). Their files live in that folder, under `.sinapsi/boards/`, so the
+ * runs in). Their files live in that folder, under `.livingboard/boards/`, so the
  * board travels and is versioned with the project. The browser only knows the
  * project id; this registry maps it back to the folder (and survives restarts).
  */
@@ -57,7 +57,9 @@ export function registerProject(folder: string): Project {
     mkdirSync(DATA_DIR, { recursive: true });
     writeFileSync(FILE, `${JSON.stringify([...map.values()], null, 2)}\n`);
   }
-  return map.get(id)!;
+  const project = map.get(id)!;
+  boardsDir(project); // moves a pre-rename `.sinapsi/` folder
+  return project;
 }
 
 export function getProject(id: string): Project | undefined {
@@ -65,7 +67,17 @@ export function getProject(id: string): Project | undefined {
 }
 
 export function boardsDir(p: Project): string {
-  return join(p.root, ".sinapsi", "boards");
+  const dir = join(p.root, ".livingboard");
+  // Projects from before the rename keep their boards in `.sinapsi/`: move them over once.
+  const legacy = join(p.root, ".sinapsi");
+  if (!existsSync(dir) && existsSync(legacy)) {
+    try {
+      renameSync(legacy, dir);
+    } catch (err) {
+      console.error(`[projects] cannot move ${legacy} to ${dir}`, err);
+    }
+  }
+  return join(dir, "boards");
 }
 
 /** Boards saved in the project folder. */

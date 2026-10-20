@@ -15,7 +15,7 @@ const INK: Record<Ink, { colors: string[]; widths: number[]; opacity: number }> 
 };
 
 const DEFAULT_PREFS: Prefs = { pen: { color: "#1e1e1e", width: 1 }, highlighter: { color: "#ffd43b", width: 5 } };
-const KEY = "sinapsi:ink";
+const KEY = "livingboard:ink";
 
 function loadPrefs(): Prefs {
   try {

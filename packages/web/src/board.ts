@@ -16,11 +16,11 @@ import {
   type SavedView,
   type Settings,
   footprint,
-  sinapsiData,
+  livingboardData,
   treeLayout,
   uid,
   type ViewDef,
-} from "@sinapsi/shared";
+} from "@livingboard/shared";
 import type * as Y from "yjs";
 import type { Collab } from "./collab";
 import { elementBBox } from "./geometry";
@@ -188,7 +188,7 @@ export class BoardModel {
     const cands = [...this.candidates.values()];
     const attached = new Map<string, ReturnType<typeof elementBBox>[]>();
     for (const e of this.collab.elements.values()) {
-      const s = sinapsiData(e as { customData?: Record<string, unknown> });
+      const s = livingboardData(e as { customData?: Record<string, unknown> });
       if (e.isDeleted || s?.author !== "ai" || !s.nodeId || e.type === "arrow") continue;
       attached.set(s.nodeId, [...(attached.get(s.nodeId) ?? []), elementBBox(e as Parameters<typeof elementBBox>[0])]);
     }
@@ -202,7 +202,7 @@ export class BoardModel {
     const linked = new Set(edges.flatMap((e) => [e.from, e.to]));
     const aiDrawings = [...this.collab.elements.values()]
       .filter((e) => {
-        const s = sinapsiData(e as { customData?: Record<string, unknown> });
+        const s = livingboardData(e as { customData?: Record<string, unknown> });
         return !e.isDeleted && s?.author === "ai" && !linked.has(s.nodeId ?? "");
       })
       .map((e) => elementBBox(e as Parameters<typeof elementBBox>[0]));
@@ -248,7 +248,7 @@ export class BoardModel {
     const scene = api.getSceneElementsIncludingDeleted();
     // Claude's drawings about a moved node (notes, annotations, extensions) move with it.
     for (const e of scene) {
-      const owner = sinapsiData(e as { customData?: Record<string, unknown> })?.nodeId;
+      const owner = livingboardData(e as { customData?: Record<string, unknown> })?.nodeId;
       const m = owner ? byNode.get(owner) : undefined;
       if (m && !shift.has(e.id)) shift.set(e.id, m);
     }
@@ -310,7 +310,7 @@ export class BoardModel {
     const api = this.getApi();
     if (!api) return { api: null, els: [] as ExcalidrawElement[] };
     const els = api.getSceneElementsIncludingDeleted().filter((e) => {
-      const s = sinapsiData(e as { customData?: Record<string, unknown> });
+      const s = livingboardData(e as { customData?: Record<string, unknown> });
       return s?.ghost && s.ghostGroup === group && !e.isDeleted;
     });
     return { api, els };
@@ -327,7 +327,7 @@ export class BoardModel {
           ? newElementWith(e, {
               opacity: 100,
               strokeStyle: "solid",
-              customData: { ...e.customData, sinapsi: { author: "ai-accepted" } },
+              customData: { ...e.customData, livingboard: { author: "ai-accepted" } },
             })
           : e,
       ),

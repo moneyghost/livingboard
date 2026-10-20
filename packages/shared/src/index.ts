@@ -340,7 +340,7 @@ export interface Activity {
 }
 
 /** Marker stored in Excalidraw `customData` on elements the AI drew. */
-export interface SinapsiElementData {
+export interface LivingboardElementData {
   author: "ai" | "ai-accepted";
   ghost?: boolean;
   ghostGroup?: string;
@@ -353,13 +353,14 @@ export interface SinapsiElementData {
   title?: string;
 }
 
-export function sinapsiData(el: { customData?: Record<string, unknown> }): SinapsiElementData | undefined {
-  return el.customData?.sinapsi as SinapsiElementData | undefined;
+export function livingboardData(el: { customData?: Record<string, unknown> }): LivingboardElementData | undefined {
+  // `sinapsi`: elements from before the rename, until a board is migrated (server side, on load).
+  return (el.customData?.livingboard ?? el.customData?.sinapsi) as LivingboardElementData | undefined;
 }
 
 /** True for elements the agent should not react to (its own drawings, unless accepted). */
 export function isAiAuthored(el: { customData?: Record<string, unknown> }): boolean {
-  return sinapsiData(el)?.author === "ai";
+  return livingboardData(el)?.author === "ai";
 }
 
 export const AI_COLOR = "#d97757";

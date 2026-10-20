@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { type SavedView, slugify } from "@sinapsi/shared";
+import { type SavedView, slugify } from "@livingboard/shared";
 import { DATA_DIR } from "./config";
 
 /**

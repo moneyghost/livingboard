@@ -1,4 +1,4 @@
-import type { AIEdge, AINode, DocSection, OntologyType } from "@sinapsi/shared";
+import type { AIEdge, AINode, DocSection, OntologyType } from "@livingboard/shared";
 import { type ReactNode, useMemo, useState } from "react";
 import type { BoardModel } from "./board";
 import { useYMap } from "./hooks";

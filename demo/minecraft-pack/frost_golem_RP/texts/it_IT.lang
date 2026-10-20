@@ -1,4 +1,4 @@
-entity.sinapsi:frost_golem.name=Golem di Ghiaccio
-item.spawn_egg.entity.sinapsi:frost_golem.name=Genera Golem di Ghiaccio
-item.sinapsi:frost_shard.name=Frammento di Ghiaccio
-item.sinapsi:frost_sword.name=Spada di Ghiaccio
+entity.livingboard:frost_golem.name=Golem di Ghiaccio
+item.spawn_egg.entity.livingboard:frost_golem.name=Genera Golem di Ghiaccio
+item.livingboard:frost_shard.name=Frammento di Ghiaccio
+item.livingboard:frost_sword.name=Spada di Ghiaccio

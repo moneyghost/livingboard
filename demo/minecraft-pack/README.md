@@ -5,7 +5,7 @@
 
 Per rifarlo da zero con Claude Code:
 
-1. Avvia Sinapsi dalla radice del repo: `pnpm dev`, poi apri http://localhost:5180.
-2. Apri Claude Code in questa cartella: il file `.mcp.json` registra già il server `sinapsi`.
-3. In Claude Code: `/mcp__sinapsi__start`.
+1. Avvia Livingboard dalla radice del repo: `pnpm dev`, poi apri http://localhost:5180.
+2. Apri Claude Code in questa cartella: il file `.mcp.json` registra già il server `livingboard`.
+3. In Claude Code: `/mcp__livingboard__start`.
 4. Disegna. Le istruzioni per l'agente sono in `CLAUDE.md`.

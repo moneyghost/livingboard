@@ -1,5 +1,5 @@
 {
-  "name": "sinapsi",
+  "name": "livingboard",
   "private": true,
   "version": "0.1.0",
   "description": "Lavagna collaborativa open source che l'AI capisce, via MCP",
@@ -10,13 +10,13 @@
     "node": ">=24"
   },
   "scripts": {
-    "dev": "pnpm -r --parallel --filter @sinapsi/server --filter @sinapsi/web run dev",
-    "dev:lan": "pnpm -r --parallel --filter @sinapsi/server --filter @sinapsi/web run dev:lan",
-    "build": "pnpm --filter @sinapsi/web run build",
-    "start": "pnpm --filter @sinapsi/server run start",
-    "start:lan": "pnpm --filter @sinapsi/server run start:lan",
+    "dev": "pnpm -r --parallel --filter @livingboard/server --filter @livingboard/web run dev",
+    "dev:lan": "pnpm -r --parallel --filter @livingboard/server --filter @livingboard/web run dev:lan",
+    "build": "pnpm --filter @livingboard/web run build",
+    "start": "pnpm --filter @livingboard/server run start",
+    "start:lan": "pnpm --filter @livingboard/server run start:lan",
     "typecheck": "pnpm -r run typecheck",
-    "smoke": "pnpm --filter @sinapsi/server run smoke",
-    "sinapsi": "pnpm --filter @sinapsi/server exec tsx src/cli.ts"
+    "smoke": "pnpm --filter @livingboard/server run smoke",
+    "livingboard": "pnpm --filter @livingboard/server exec tsx src/cli.ts"
   }
 }

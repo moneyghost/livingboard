@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { uid, viewMatches } from "@sinapsi/shared";
+import { uid, viewMatches } from "@livingboard/shared";
 import { z } from "zod";
 import { getBoard, notifyRegistryChanged, openBoardsOf } from "./board";
 import { HOST, lanAddresses, webBase } from "./config";
@@ -12,7 +12,7 @@ import { hasRenderer, renderPng, rpcCall } from "./render";
 import { type El, elementBBox, unionBBox } from "./segment";
 import { parseScene } from "./svgpath";
 
-const INSTRUCTIONS = `Sinapsi è una lavagna collaborativa open source ed è il prompt vivo di un progetto: persone e agente la modificano nel tempo, e lavagna e progetto devono corrispondere sempre. Tu sei un partecipante: leggi quello che le persone disegnano, lo trasformi in significato, costruisci, e riporti sulla lavagna quello che hai fatto.
+const INSTRUCTIONS = `Livingboard è una lavagna collaborativa open source ed è il prompt vivo di un progetto: persone e agente la modificano nel tempo, e lavagna e progetto devono corrispondere sempre. Tu sei un partecipante: leggi quello che le persone disegnano, lo trasformi in significato, costruisci, e riporti sulla lavagna quello che hai fatto.
 
 Ciclo di lavoro:
 1. board_overview una volta: stato, policy, ontologia e i tuoi disegni già presenti (drawings).
@@ -45,10 +45,10 @@ Regole:
  * What the bridge announces in every Claude Code session of every project
  * (most never open a board): two lines. The full rules come with open_board.
  */
-const BRIEF_INSTRUCTIONS = `Sinapsi: lavagna condivisa di questo progetto (prompt vivo: persone e agente la tengono allineata al progetto). Si apre con /whiteboard [nome] o con open_board.
-Chiama open_board prima di ogni altro tool di Sinapsi: restituisce le regole di lavoro (rules) da seguire per tutta la sessione.`;
+const BRIEF_INSTRUCTIONS = `Livingboard: lavagna condivisa di questo progetto (prompt vivo: persone e agente la tengono allineata al progetto). Si apre con /whiteboard [nome] o con open_board.
+Chiama open_board prima di ogni altro tool di Livingboard: restituisce le regole di lavoro (rules) da seguire per tutta la sessione.`;
 
-const START_PROMPT = (board: string, goal?: string) => `Avvia il ciclo Sinapsi sulla lavagna "${board}".
+const START_PROMPT = (board: string, goal?: string) => `Avvia il ciclo Livingboard sulla lavagna "${board}".
 ${goal ? `\nObiettivo di questa sessione: ${goal}\n` : ""}
 1. Chiama open_board(board: "${board}") (la mostra all'utente) e poi board_overview(board: "${board}").
 2. Poi entra nel ciclo: wait_for_changes → interpreta → agisci secondo la policy → wait_for_changes. Non fermarti dopo un giro e non chiedere conferma in chat: le domande vanno sulla lavagna con comment().
@@ -81,11 +81,11 @@ function openInBrowser(url: string): boolean {
 
 /**
  * `local`: the MCP client is on this machine, so it may hand us files by path.
- * `project`: the folder the agent works in (from the `sinapsi mcp` bridge):
- * board names then refer to that project's boards, saved in its `.sinapsi/`.
+ * `project`: the folder the agent works in (from the `livingboard mcp` bridge):
+ * board names then refer to that project's boards, saved in its `.livingboard/`.
  */
 export function createMcpServer(opts: { local?: boolean; project?: Project; brief?: boolean } = {}) {
-  const server = new McpServer({ name: "sinapsi", version: "0.1.0" }, { instructions: opts.brief ? BRIEF_INSTRUCTIONS : INSTRUCTIONS });
+  const server = new McpServer({ name: "livingboard", version: "0.1.0" }, { instructions: opts.brief ? BRIEF_INSTRUCTIONS : INSTRUCTIONS });
   const getB = (board?: string) => getBoard(boardKey(opts.project, board));
 
   server.registerTool(
@@ -93,7 +93,7 @@ export function createMcpServer(opts: { local?: boolean; project?: Project; brie
     {
       title: "Apri la lavagna",
       description:
-        "Open a board of this project (created empty if new) and show it to the user: returns its URL and, unless a tab already shows it, opens it in the browser of this machine. A project's boards are saved in its folder (.sinapsi/boards/<name>.ydoc). Use it when the user asks for the whiteboard (/whiteboard <name>), then call board_overview.",
+        "Open a board of this project (created empty if new) and show it to the user: returns its URL and, unless a tab already shows it, opens it in the browser of this machine. A project's boards are saved in its folder (.livingboard/boards/<name>.ydoc). Use it when the user asks for the whiteboard (/whiteboard <name>), then call board_overview.",
       inputSchema: {
         board: boardArg,
         open: z.boolean().optional().describe("Open it in the browser of this machine (default true)"),
@@ -110,7 +110,7 @@ export function createMcpServer(opts: { local?: boolean; project?: Project; brie
       const others = p ? [...new Set([...savedBoards(p), ...openBoardsOf(p.id).map((x) => x.label)])].filter((n) => n !== b.label).sort() : [];
       return json({
         board: b.label,
-        project: p ? { name: p.name, folder: p.root, file: `.sinapsi/boards/${b.label}.ydoc` } : null,
+        project: p ? { name: p.name, folder: p.root, file: `.livingboard/boards/${b.label}.ydoc` } : null,
         url,
         // Other devices (iPad) reach it on these addresses when the server runs with --lan.
         lan: HOST === "0.0.0.0" ? lanAddresses().map((ip) => `${webBase(ip)}/${query}`) : [],
@@ -340,12 +340,12 @@ export function createMcpServer(opts: { local?: boolean; project?: Project; brie
     "attach_view",
     {
       title: "Vista interattiva",
-      description: `Attach an interactive view (a small HTML app) to a node, shown as a card on the canvas. Replaces the node's previous view. The HTML runs in a sandboxed iframe: scripts allowed, NO network, NO external resources — inline everything. A global \`sinapsi\` object is injected:
-  sinapsi.node          // {id, type, label}
-  sinapsi.props         // current node props
-  sinapsi.onProps(fn)   // fn(props) now and on every change
-  sinapsi.update(patch) // merge into node props; you get it back as feedback "view-edit"
-  sinapsi.resize(h)     // ask for a new card height
+      description: `Attach an interactive view (a small HTML app) to a node, shown as a card on the canvas. Replaces the node's previous view. The HTML runs in a sandboxed iframe: scripts allowed, NO network, NO external resources — inline everything. A global \`livingboard\` object is injected:
+  livingboard.node          // {id, type, label}
+  livingboard.props         // current node props
+  livingboard.onProps(fn)   // fn(props) now and on every change
+  livingboard.update(patch) // merge into node props; you get it back as feedback "view-edit"
+  livingboard.resize(h)     // ask for a new card height
 Design for ~360×280, light background, readable at small size. Good uses: a stats card with sliders, a checklist, a small table editor, a timeline, a tiny simulator.
 Check list_views first and reuse a saved view with apply_view when one fits; read props defensively so a view works on any node with the right shape.`,
       inputSchema: {
@@ -627,7 +627,7 @@ Keep it simple and readable: a viewBox, few colors (the board's ink + 1-2 accent
     {
       title: "Aggiungi un'immagine",
       description:
-        "Put an image on the board: a screenshot of what you built (app, web page, game, document), a render, a photo, a reference picture. Exactly one source: path (a file on this computer; only when you run on the same machine as the Sinapsi server), url (http/https) or data (base64). PNG, JPEG, GIF, WebP or SVG, max 4 MB. Placed in free space near `near` and tied to that node (it follows it when the board is tidied). replace = drawingId (or image id) of an image you added before: swaps the picture in place (a fresh screenshot after each change) instead of piling up copies. caption: max 20 words.",
+        "Put an image on the board: a screenshot of what you built (app, web page, game, document), a render, a photo, a reference picture. Exactly one source: path (a file on this computer; only when you run on the same machine as the Livingboard server), url (http/https) or data (base64). PNG, JPEG, GIF, WebP or SVG, max 4 MB. Placed in free space near `near` and tied to that node (it follows it when the board is tidied). replace = drawingId (or image id) of an image you added before: swaps the picture in place (a fresh screenshot after each change) instead of piling up copies. caption: max 20 words.",
       inputSchema: {
         board: boardArg,
         path: z.string().optional(),
@@ -934,7 +934,7 @@ Keep it simple and readable: a viewBox, few colors (the board's ink + 1-2 accent
   server.registerPrompt(
     "start",
     {
-      title: "Avvia Sinapsi",
+      title: "Avvia Livingboard",
       description: "Start the listening loop on a board",
       argsSchema: {
         board: z.string().optional().describe('Board name (default "main")'),

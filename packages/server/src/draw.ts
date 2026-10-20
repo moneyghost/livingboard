@@ -1,4 +1,4 @@
-import { AI_COLOR, type BBox, isAiAuthored, type SinapsiElementData, uid } from "@sinapsi/shared";
+import { AI_COLOR, type BBox, isAiAuthored, type LivingboardElementData, uid } from "@livingboard/shared";
 import { generateKeyBetween } from "fractional-indexing";
 import { type El, elementBBox } from "./segment";
 import type { Paint, Pt, Scene, SceneItem } from "./svgpath";
@@ -151,7 +151,7 @@ export class Drawer {
   constructor(
     private elements: El[],
     private resolveRef: (ref: string) => BBox | undefined,
-    private meta: SinapsiElementData,
+    private meta: LivingboardElementData,
     private style: { color?: string; fontSize?: number } = {},
   ) {
     const live = elements.filter((e) => !e.isDeleted);
@@ -390,7 +390,7 @@ export class Drawer {
       updated: Date.now(),
       link: null,
       locked: false,
-      customData: { sinapsi: { ...this.meta } },
+      customData: { livingboard: { ...this.meta } },
       ...extra,
     };
   }

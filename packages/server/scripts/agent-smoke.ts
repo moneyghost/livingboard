@@ -9,7 +9,7 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
-const url = process.env.SINAPSI_MCP ?? "http://localhost:3333/mcp";
+const url = process.env.LIVINGBOARD_MCP ?? "http://localhost:3333/mcp";
 const roundsArg = process.argv.indexOf("--rounds");
 const rounds = roundsArg >= 0 ? Number(process.argv[roundsArg + 1]) : Infinity;
 
@@ -17,7 +17,7 @@ type Change = { id: string; kind: string; summary: string; texts: string[] };
 type Link = { id: string; label?: string };
 type Report = { changes: Change[]; links: Link[]; removed: { id: string }[]; feedback: { kind: string; user: string }[]; idle: boolean };
 
-const client = new Client({ name: "sinapsi-smoke", version: "0.1.0" });
+const client = new Client({ name: "livingboard-smoke", version: "0.1.0" });
 await client.connect(new StreamableHTTPClientTransport(new URL(url)));
 
 async function call<T = unknown>(name: string, args: Record<string, unknown> = {}): Promise<T> {

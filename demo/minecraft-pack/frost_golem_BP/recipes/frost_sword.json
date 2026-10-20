@@ -2,7 +2,7 @@
   "format_version": "1.20.10",
   "minecraft:recipe_shaped": {
     "description": {
-      "identifier": "sinapsi:frost_sword"
+      "identifier": "livingboard:frost_sword"
     },
     "tags": [
       "crafting_table"
@@ -14,7 +14,7 @@
     ],
     "key": {
       "S": {
-        "item": "sinapsi:frost_shard"
+        "item": "livingboard:frost_shard"
       },
       "T": {
         "item": "minecraft:stick"
@@ -22,11 +22,11 @@
     },
     "unlock": [
       {
-        "item": "sinapsi:frost_shard"
+        "item": "livingboard:frost_shard"
       }
     ],
     "result": {
-      "item": "sinapsi:frost_sword"
+      "item": "livingboard:frost_sword"
     }
   }
 }

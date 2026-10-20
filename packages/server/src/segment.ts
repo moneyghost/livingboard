@@ -1,4 +1,4 @@
-import { type BBox, type Candidate, type CandidateKind, isAiAuthored } from "@sinapsi/shared";
+import { type BBox, type Candidate, type CandidateKind, isAiAuthored } from "@livingboard/shared";
 
 /** The subset of an Excalidraw element the server cares about. */
 export interface El {
@@ -73,7 +73,7 @@ const ARROWHEAD_REACH = 12;
 /** Stray dots and specks join the nearest cluster. */
 const SPECK = 20;
 
-const QUESTION_RE = /^\s*@(ai|claude|sinapsi)\b/i;
+const QUESTION_RE = /^\s*@(ai|claude|livingboard)\b/i;
 
 export function elementBBox(el: El): BBox {
   if (el.points && el.points.length > 0) {

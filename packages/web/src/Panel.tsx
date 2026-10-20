@@ -1,4 +1,4 @@
-import { type AgentState, type AINode, type Comment, DEFAULT_SETTINGS, type Settings } from "@sinapsi/shared";
+import { type AgentState, type AINode, type Comment, DEFAULT_SETTINGS, type Settings } from "@livingboard/shared";
 import { useState } from "react";
 import type { BoardModel } from "./board";
 import { SERVER_HOST } from "./collab";
@@ -128,7 +128,7 @@ export function Panel({ model, board, project, me, lens, onLens, showBoxes, onSh
 
   if (collapsed) {
     return (
-      <button type="button" className="panel-tab" onClick={() => setCollapsed(false)} title="Apri il pannello Sinapsi">
+      <button type="button" className="panel-tab" onClick={() => setCollapsed(false)} title="Apri il pannello Livingboard">
         <span className={`status-dot ${status.cls}`} />✳
       </button>
     );
@@ -138,7 +138,7 @@ export function Panel({ model, board, project, me, lens, onLens, showBoxes, onSh
     <aside className={`panel ${tab === "doc" ? "wide" : ""}`}>
       <header className="panel-head">
         <div>
-          <h1>✳ Sinapsi</h1>
+          <h1>✳ Livingboard</h1>
           <span className="muted small">
             {project && (
               <>
@@ -175,9 +175,9 @@ export function Panel({ model, board, project, me, lens, onLens, showBoxes, onSh
             ) : (
               <>
                 <p className="small">Collega Claude Code alla lavagna:</p>
-                <Copy text={`claude mcp add --transport http sinapsi ${mcpUrl}`} />
+                <Copy text={`claude mcp add --transport http livingboard ${mcpUrl}`} />
                 <p className="small">poi, dentro Claude Code:</p>
-                <Copy text="/mcp__sinapsi__start" />
+                <Copy text="/mcp__livingboard__start" />
               </>
             )}
           </div>

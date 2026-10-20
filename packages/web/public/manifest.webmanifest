@@ -1,6 +1,6 @@
 {
-  "name": "Sinapsi",
-  "short_name": "Sinapsi",
+  "name": "Livingboard",
+  "short_name": "Livingboard",
   "description": "Lavagna collaborativa che l'AI capisce mentre disegni",
   "start_url": "/",
   "display": "standalone",
