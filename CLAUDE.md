@@ -48,6 +48,7 @@ Lavagna collaborativa (Excalidraw + Yjs) letta dall'AI via MCP. Panoramica utent
 - MCP: si usa `WebStandardStreamableHTTPServerTransport` con piping manuale; il wrapper Node dell'SDK corrompeva il chunked encoding.
 - Excalidraw, una volta montato, resetta la scena con `initialData`: la lavagna si carica passando gli elementi della prima sync Yjs come `initialData`, non con `updateScene`.
 - Un indice frazionario malformato blocca il caricamento di tutti i client: `collab.ts` e `draw.ts` scartano gli indici non validi.
+- Testi tagliati: un testo misurato prima che Excalifont sia caricato tiene la larghezza del font sostitutivo e il canvas lo taglia (Safari non carica i font da solo per il canvas). `collab.ts` (`fitText`) carica i glifi dei testi arrivati dal server e li rimisura in locale, senza cambiare `version`.
 - Niente indicatori animati per elemento sul canvas (scelta dell'utente): lo stato dell'AI va nel pannello.
 - In dev `window.__excalidraw` e `window.__collab` sono esposti per il debug.
 - Nessuna logica di dominio nel nucleo (server, web, shared): niente Minecraft o simili. Il dominio sta nell'agente e nella sua cartella; `demo/` è solo un esempio d'uso.

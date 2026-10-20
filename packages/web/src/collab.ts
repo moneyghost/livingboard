@@ -1,4 +1,4 @@
-import { CaptureUpdateAction, restoreElements } from "@excalidraw/excalidraw";
+import { CaptureUpdateAction, FONT_FAMILY, restoreElements } from "@excalidraw/excalidraw";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type {
   AppState,
@@ -30,6 +30,13 @@ function byIndex(a: El, b: El) {
   if (!bi) return -1;
   return ai < bi ? -1 : 1;
 }
+
+/** Excalidraw's web fonts by family id (Helvetica is a system font: always ready). */
+const WEB_FONTS = new Map<number, string>(
+  Object.entries(FONT_FAMILY)
+    .filter(([name]) => name !== "Helvetica")
+    .map(([name, id]) => [id as number, name]),
+);
 
 const isAi = (el: El) => !!sinapsiData(el as { customData?: Record<string, unknown> });
 
@@ -110,7 +117,10 @@ export class Collab {
       const files = Object.fromEntries([...this.files.values()].map((f) => [f.id, f])) as unknown as BinaryFiles;
       this.resolveInitial({ elements, files, scrollToContent: true });
       // Updates that land while Excalidraw is still initializing: re-apply once it's settled.
-      setTimeout(() => this.applyRemote([...this.elements.keys()]), 300);
+      setTimeout(() => {
+        this.applyRemote([...this.elements.keys()]);
+        void this.fitText(remote.map((e) => e.id));
+      }, 300);
       this.onSynced?.();
     });
 
@@ -218,6 +228,64 @@ export class Collab {
       this.known.set(el.id, el.version);
     }
     this.api.updateScene({ elements: [...map.values()].sort(byIndex), captureUpdate: CaptureUpdateAction.NEVER });
+    void this.fitText(restored.filter((e) => e.type === "text").map((e) => e.id));
+  }
+
+  /**
+   * A text's box is measured with whatever font is loaded at that moment.
+   * Excalidraw loads its fonts only for the initial scene, and Safari never
+   * loads them on its own for the canvas: a board that arrives over the wire
+   * gets measured with the fallback font, then drawn with the wider hand-drawn
+   * one, and the canvas cuts off what spills out of the box. Load the glyphs
+   * these texts use, then re-measure them. Local fix only (same version): the
+   * stored element stays as its author made it.
+   */
+  private async fitText(ids: string[], retry = true) {
+    if (!this.api || !ids.length) return;
+    const wanted = new Set(ids);
+    const texts = this.api.getSceneElements().filter((e) => e.type === "text" && wanted.has(e.id));
+    const chars = new Map<string, Set<string>>();
+    for (const t of texts) {
+      if (t.type !== "text") continue;
+      const family = WEB_FONTS.get(t.fontFamily);
+      if (!family) continue;
+      const set = chars.get(family) ?? new Set<string>();
+      for (const c of t.originalText + t.text) set.add(c);
+      chars.set(family, set);
+    }
+    // Right after the first sync Excalidraw may not hold the scene yet.
+    if (!texts.length && retry) setTimeout(() => void this.fitText(ids, false), 1000);
+    if (!chars.size) return;
+    const loaded = await Promise.all(
+      [...chars].map(([family, set]) =>
+        document.fonts.load(`20px "${family}", Xiaolai`, [...set].join("")).catch(() => [] as FontFace[]),
+      ),
+    );
+    // Excalidraw registers its font faces while mounting: if they weren't there yet, try again.
+    if (loaded.some((faces) => !faces.length) && retry) setTimeout(() => void this.fitText(ids, false), 1000);
+    this.remeasure(wanted);
+  }
+
+  private remeasure(ids: Set<string>) {
+    if (!this.api) return;
+    const scene = this.api.getSceneElementsIncludingDeleted();
+    const texts = scene.filter((e) => e.type === "text" && !e.isDeleted && ids.has(e.id));
+    const containers = new Set(texts.map((t) => (t.type === "text" ? t.containerId : null)).filter(Boolean));
+    const subset = scene.filter((e) => texts.includes(e) || containers.has(e.id)).sort(byIndex);
+    const fresh = new Map(
+      restoreElements(subset, null, { refreshDimensions: true, repairBindings: true })
+        .filter((e) => e.type === "text")
+        .map((e) => [e.id, e]),
+    );
+    let changed = false;
+    const next = scene.map((e) => {
+      const f = fresh.get(e.id);
+      if (!f || e.type !== "text" || f.type !== "text") return e;
+      if (Math.abs(f.width - e.width) < 0.5 && Math.abs(f.height - e.height) < 0.5 && f.text === e.text) return e;
+      changed = true;
+      return { ...e, x: f.x, y: f.y, width: f.width, height: f.height, text: f.text } as El;
+    });
+    if (changed) this.api.updateScene({ elements: next, captureUpdate: CaptureUpdateAction.NEVER });
   }
 
   // ------------------------------------------------------------- presence
