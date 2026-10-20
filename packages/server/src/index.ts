@@ -4,7 +4,7 @@ import { extname, join, normalize } from "node:path";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { WebSocketServer } from "ws";
 import { getBoard, notifyRegistryChanged, openBoardsOf } from "./board";
-import { DEV, HOST, lanAddresses, PORT, WEB_DIST } from "./config";
+import { BUNDLED, DEV, HOST, lanAddresses, PORT, WEB_DIST } from "./config";
 import { createMcpServer } from "./mcp";
 import { getProject, parseBoardKey, type Project, registerProject } from "./projects";
 import { deleteView, listViews, saveView } from "./registry";
@@ -220,9 +220,11 @@ http.on("upgrade", (req, socket, head) => {
 http.listen(PORT, HOST, () => {
   console.log(`\n  ✳ Livingboard server  http://${HOST}:${PORT}`);
   if (HOST === "0.0.0.0") {
-    for (const ip of lanAddresses()) console.log(`    Network          http://${ip}:5180 (dev) · http://${ip}:${PORT} (build)`);
+    for (const ip of lanAddresses()) {
+      console.log(`    Network          ${BUNDLED ? "" : `http://${ip}:5180 (dev) · `}http://${ip}:${PORT}${BUNDLED ? "" : " (build)"}`);
+    }
     console.log("    ⚠ No authentication: anyone on this network can edit the board.");
   }
   console.log(`    MCP endpoint     http://${HOST}:${PORT}/mcp`);
-  console.log(`    Claude Code      pnpm livingboard install, then /whiteboard [name] in any project\n`);
+  console.log(`    Claude Code      ${BUNDLED ? "livingboard" : "pnpm livingboard"} install, then /whiteboard [name] in any project\n`);
 });

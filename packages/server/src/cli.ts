@@ -4,6 +4,7 @@
  *   livingboard mcp                stdio MCP server for Claude Code (the bridge)
  *   livingboard install [--lan]    /whiteboard skill + MCP bridge + prompt hook, for every project
  *   livingboard uninstall
+ *   livingboard start [--lan]      the server in the foreground (boards without Claude Code)
  *
  * The bridge is what Claude Code starts in a project folder. It answers the
  * tool list by itself (so it costs nothing until used), and on the first tool
@@ -21,16 +22,24 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, GetPromptRequestSchema, ListPromptsRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { DATA_DIR, PORT, WEB_DIST } from "./config";
+import { BUNDLED, DATA_DIR, PORT, VERSION, WEB_DIST } from "./config";
 import { createMcpServer } from "./mcp";
 
 const SERVER_DIR = resolve(import.meta.dirname, "..");
 const REPO = resolve(SERVER_DIR, "..", "..");
 const BASE = `http://127.0.0.1:${PORT}`;
-const VERSION = "0.1.0";
 const log = (...a: unknown[]) => console.error("[livingboard]", ...a);
 // Through the package's own node_modules link (not the store path): survives reinstalls.
 const TSX = pathToFileURL(join(SERVER_DIR, "node_modules", "tsx", "dist", "loader.mjs")).href;
+
+/**
+ * How to run a part with node: the bundled files of the npm package (all in `dist/`,
+ * next to this one) or the TypeScript sources through tsx.
+ */
+function nodeArgs(part: "cli" | "server"): string[] {
+  if (BUNDLED) return [join(import.meta.dirname, `${part}.js`)];
+  return ["--import", TSX, join(SERVER_DIR, "src", part === "cli" ? "cli.ts" : "index.ts")];
+}
 
 // ------------------------------------------------------------------ project
 
@@ -69,8 +78,8 @@ function ensureServer(): Promise<void> {
     mkdirSync(DATA_DIR, { recursive: true });
     const logFile = join(DATA_DIR, "server.log");
     const out = openSync(logFile, "a");
-    const child = spawn(process.execPath, ["--import", TSX, join(SERVER_DIR, "src", "index.ts")], {
-      cwd: SERVER_DIR,
+    const child = spawn(process.execPath, nodeArgs("server"), {
+      cwd: BUNDLED ? DATA_DIR : SERVER_DIR,
       detached: true,
       stdio: ["ignore", out, out],
       windowsHide: true,
@@ -146,7 +155,7 @@ async function bridge() {
 const CLAUDE_DIR = process.env.CLAUDE_CONFIG_DIR ?? join(homedir(), ".claude");
 const SKILL_DIR = join(CLAUDE_DIR, "skills", "whiteboard");
 const SETTINGS = join(CLAUDE_DIR, "settings.json");
-const HOOK = join(SERVER_DIR, "bin", "livingboard-hook.mjs");
+const HOOK = BUNDLED ? join(import.meta.dirname, "livingboard-hook.mjs") : join(SERVER_DIR, "bin", "livingboard-hook.mjs");
 const HOOK_MARK = "livingboard-hook.mjs";
 
 const SKILL = `---
@@ -194,16 +203,16 @@ function setHook(on: boolean) {
 function install(lan: boolean) {
   if (!run("claude", ["--version"], true)) throw new Error("`claude` command not found: install Claude Code and try again.");
 
-  if (!existsSync(WEB_DIST)) {
+  if (!BUNDLED && !existsSync(WEB_DIST)) {
     console.log("· building the whiteboard page (pnpm build)…");
     if (!run("pnpm", ["--dir", REPO, "build"])) throw new Error("pnpm build failed.");
   }
 
-  // The bridge, for every project (user scope). `node --import tsx` runs the TypeScript sources.
+  // The bridge, for every project (user scope): this same package, by absolute path
+  // (no npx on every session start).
   run("claude", ["mcp", "remove", "livingboard", "--scope", "user"], true);
   const env = lan ? ["-e", "LIVINGBOARD_HOST=0.0.0.0"] : [];
-  const cli = join(SERVER_DIR, "src", "cli.ts");
-  if (!run("claude", ["mcp", "add", "livingboard", "--scope", "user", ...env, "--", "node", "--import", TSX, cli, "mcp"])) {
+  if (!run("claude", ["mcp", "add", "livingboard", "--scope", "user", ...env, "--", "node", ...nodeArgs("cli"), "mcp"])) {
     throw new Error("claude mcp add failed.");
   }
   console.log("✓ MCP server `livingboard` (user scope, started by Claude Code in the project folder)");
@@ -230,6 +239,13 @@ function uninstall() {
   console.log("✓ removed the MCP server, /whiteboard skill and hook. Boards in projects (.livingboard/) stay.");
 }
 
+/** The server in the foreground, for using boards without Claude Code (Ctrl+C stops it). */
+function start(lan: boolean) {
+  const env = lan ? { ...process.env, LIVINGBOARD_HOST: "0.0.0.0" } : process.env;
+  const child = spawn(process.execPath, nodeArgs("server"), { stdio: "inherit", env });
+  child.on("exit", (code) => process.exit(code ?? 0));
+}
+
 // ------------------------------------------------------------------ main
 
 const [cmd, ...rest] = process.argv.slice(2);
@@ -237,8 +253,10 @@ try {
   if (cmd === "mcp") await bridge();
   else if (cmd === "install") install(rest.includes("--lan"));
   else if (cmd === "uninstall") uninstall();
+  else if (cmd === "start") start(rest.includes("--lan"));
+  else if (cmd === "--version" || cmd === "-v") console.log(VERSION);
   else {
-    console.log("usage: livingboard mcp | install [--lan] | uninstall");
+    console.log("usage: livingboard install [--lan] | uninstall | start [--lan] | mcp | --version");
     process.exitCode = cmd ? 1 : 0;
   }
 } catch (err) {

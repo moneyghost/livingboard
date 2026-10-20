@@ -1,0 +1,42 @@
+{
+  "name": "livingboard",
+  "version": "0.1.0",
+  "description": "Open-source collaborative whiteboard that AI understands: the living prompt of your project, for Claude Code via MCP",
+  "license": "MIT",
+  "author": "moneyghost",
+  "homepage": "https://github.com/moneyghost/livingboard#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/moneyghost/livingboard.git"
+  },
+  "bugs": {
+    "url": "https://github.com/moneyghost/livingboard/issues"
+  },
+  "keywords": [
+    "whiteboard",
+    "mcp",
+    "claude-code",
+    "excalidraw",
+    "yjs",
+    "ai",
+    "collaboration"
+  ],
+  "type": "module",
+  "bin": {
+    "livingboard": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "web"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "prepack": "node build.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

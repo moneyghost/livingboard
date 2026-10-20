@@ -1,0 +1,6 @@
+# Produced by build.mjs: the package is built from packages/server and packages/web
+dist
+web
+README.md
+LICENSE
+*.tgz

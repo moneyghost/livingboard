@@ -166,14 +166,20 @@ importers:
 
   .: {}
 
+  packages/livingboard:
+    devDependencies:
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
+
   packages/server:
     dependencies:
-      '@modelcontextprotocol/sdk':
-        specifier: ^1.32.1
-        version: 1.32.1(zod@4.6.7)
       '@livingboard/shared':
         specifier: workspace:*
         version: link:../shared
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.32.1
+        version: 1.32.1(zod@4.6.7)
       fractional-indexing:
         specifier: 3.2.0
         version: 3.2.0

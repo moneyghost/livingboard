@@ -1,5 +1,5 @@
 {
-  "name": "livingboard",
+  "name": "livingboard-monorepo",
   "private": true,
   "version": "0.1.0",
   "description": "Open-source collaborative whiteboard that AI understands, via MCP",
@@ -17,6 +17,7 @@
     "start:lan": "pnpm --filter @livingboard/server run start:lan",
     "typecheck": "pnpm -r run typecheck",
     "smoke": "pnpm --filter @livingboard/server run smoke",
-    "livingboard": "pnpm --filter @livingboard/server exec tsx src/cli.ts"
+    "livingboard": "pnpm --filter @livingboard/server exec tsx src/cli.ts",
+    "pack:npm": "pnpm build && pnpm --filter livingboard exec npm pack"
   }
 }

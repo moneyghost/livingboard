@@ -14,11 +14,11 @@ Livingboard knows nothing about any domain: no plugins for games, apps or docume
 
 ## Quick start
 
-Once, from the Livingboard folder:
+Requires Node.js 22+ and [Claude Code](https://claude.com/claude-code). Once:
 
 ```bash
-pnpm install
-pnpm livingboard install
+npm install -g livingboard
+livingboard install
 ```
 
 Then in **any project**, in a new Claude Code session:
@@ -28,18 +28,27 @@ Then in **any project**, in a new Claude Code session:
 /whiteboard ui       another board of the same project
 ```
 
-Claude opens the board in the browser and works on it. Nothing to start by hand: the server starts by itself on the first call and stays up for all projects. A project's boards are saved **in the project**, in `.livingboard/boards/<name>.ydoc`, so they travel and are versioned with the code. For a tablet: `pnpm livingboard install --lan` (the server becomes reachable on the network; `open_board` also returns the addresses for the iPad).
+Claude opens the board in the browser and works on it. Nothing to start by hand: the server starts by itself on the first call and stays up for all projects. A project's boards are saved **in the project**, in `.livingboard/boards/<name>.ydoc`, so they travel and are versioned with the code. For a tablet: `livingboard install --lan` (the server becomes reachable on the network; `open_board` also returns the addresses for the iPad).
 
-What `pnpm livingboard install` sets up (user scope; `pnpm livingboard uninstall` removes it):
+What `livingboard install` sets up (user scope; `livingboard uninstall` removes it):
 
 - the `livingboard` MCP server (a stdio bridge that Claude Code starts in the project folder: the folder decides the project). It costs little in projects where you don't use the board: two lines of instructions and the tool names (about 300 tokens per session with on-demand tool loading); the full rules arrive only with `open_board`;
 - the `/whiteboard` skill in `~/.claude/skills/whiteboard/`;
 - a `UserPromptSubmit` hook in `~/.claude/settings.json`: on every message, if something changed on the project's board since the last message, Claude knows (one line of context, no wait if the server is off).
 
+Global boards, the project registry and the server log live in `~/.livingboard/` (`LIVINGBOARD_DATA` to move them). `livingboard start [--lan]` runs the server in the foreground, to use boards without Claude Code (http://localhost:3333). After `npm update -g livingboard`, run `livingboard install` again only if the package moved (a different Node.js install).
+
 On an empty board there is a **Load the example: weather app** button.
 
-To develop Livingboard: `pnpm dev` (board on http://localhost:5180, on the network with `pnpm dev:lan`). The bridge uses the dev server if it is already running. Global boards, outside a project: `claude mcp add --transport http livingboard http://localhost:3333/mcp` and `/mcp__livingboard__start`.
-Without Claude you can check the loop with a fake agent: `pnpm smoke`.
+### From source
+
+```bash
+pnpm install
+pnpm livingboard install
+```
+
+Same commands as above, prefixed with `pnpm` and run from the repo; data then lives in the repo's `data/`. To develop Livingboard: `pnpm dev` (board on http://localhost:5180, on the network with `pnpm dev:lan`). The bridge uses the dev server if it is already running. Global boards, outside a project: `claude mcp add --transport http livingboard http://localhost:3333/mcp` and `/mcp__livingboard__start`.
+Without Claude you can check the loop with a fake agent: `pnpm smoke`. `pnpm pack:npm` builds the npm package (`packages/livingboard`).
 
 ## How it works
 
@@ -167,6 +176,7 @@ The card is dragged by its header and its position is shared with everyone.
 packages/shared   shared document schema (types, Yjs keys, settings)
 packages/server   Yjs sync, segmentation, attention, MCP, persistence in data/
 packages/web      Excalidraw + AI overlay + panel + views
+packages/livingboard  the npm package: server and CLI bundled with esbuild + the built page
 demo/minecraft-pack  usage example: a Minecraft add-on built by Claude from a board (.mcp.json + the project's CLAUDE.md)
 ```
 

@@ -3,7 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { uid, viewMatches } from "@livingboard/shared";
 import { z } from "zod";
 import { getBoard, notifyRegistryChanged, openBoardsOf } from "./board";
-import { HOST, lanAddresses, webBase } from "./config";
+import { HOST, lanAddresses, VERSION, webBase } from "./config";
 import { type AnnotationKind, checkWords, Drawer } from "./draw";
 import { loadImage } from "./image";
 import { getView, listViews, saveView } from "./registry";
@@ -85,7 +85,7 @@ function openInBrowser(url: string): boolean {
  * board names then refer to that project's boards, saved in its `.livingboard/`.
  */
 export function createMcpServer(opts: { local?: boolean; project?: Project; brief?: boolean } = {}) {
-  const server = new McpServer({ name: "livingboard", version: "0.1.0" }, { instructions: opts.brief ? BRIEF_INSTRUCTIONS : INSTRUCTIONS });
+  const server = new McpServer({ name: "livingboard", version: VERSION }, { instructions: opts.brief ? BRIEF_INSTRUCTIONS : INSTRUCTIONS });
   const getB = (board?: string) => getBoard(boardKey(opts.project, board));
 
   server.registerTool(
