@@ -1,6 +1,6 @@
 {
   "name": "livingboard",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Open-source collaborative whiteboard that AI understands: the living prompt of your project, for Claude Code via MCP",
   "license": "MIT",
   "author": "moneyghost",
