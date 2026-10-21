@@ -1,25 +1,24 @@
 /**
  * Runs the geometric pre-pass offline on a saved board and prints the result.
  *
- *   tsx scripts/segment-debug.ts [board=main] [--svg out.svg]
+ *   tsx scripts/segment-debug.ts <project>/.livingboard/boards/<board>.ydoc [--svg out.svg]
  *
  * --svg draws every candidate's elements in its own color, links dashed: the
  * quickest way to see what the segmenter thinks belongs together.
  */
 import { readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { type Candidate, DOC } from "@livingboard/shared";
 import * as Y from "yjs";
-import { DATA_DIR } from "../src/config";
 import { type El, elementBBox, segment } from "../src/segment";
 
 const args = process.argv.slice(2);
 const svgIdx = args.indexOf("--svg");
 const svgOut = svgIdx >= 0 ? args.splice(svgIdx, 2)[1] : undefined;
-const board = args[0] ?? "main";
+const file = args[0];
+if (!file) throw new Error("usage: segment-debug.ts <board file .ydoc> [--svg out.svg]");
 
 const doc = new Y.Doc();
-Y.applyUpdate(doc, readFileSync(join(DATA_DIR, `${board}.ydoc`)));
+Y.applyUpdate(doc, readFileSync(file));
 const elements = [...doc.getMap<El>(DOC.elements).values()];
 const cands = segment(elements, new Map(), Date.now());
 

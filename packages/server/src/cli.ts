@@ -22,12 +22,13 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, GetPromptRequestSchema, ListPromptsRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
-import { BUNDLED, DATA_DIR, PORT, VERSION, WEB_DIST } from "./config";
+import { BUNDLED, DATA_DIR, PORT, readServerPort, VERSION, WEB_DIST } from "./config";
 import { createMcpServer } from "./mcp";
 
 const SERVER_DIR = resolve(import.meta.dirname, "..");
 const REPO = resolve(SERVER_DIR, "..", "..");
-const BASE = `http://127.0.0.1:${PORT}`;
+/** Where the server is: the port it wrote in server.json (it moves when 3333 is taken), else the default. */
+const base = () => `http://127.0.0.1:${readServerPort() ?? PORT}`;
 const log = (...a: unknown[]) => console.error("[livingboard]", ...a);
 // Through the package's own node_modules link (not the store path): survives reinstalls.
 const TSX = pathToFileURL(join(SERVER_DIR, "node_modules", "tsx", "dist", "loader.mjs")).href;
@@ -62,7 +63,7 @@ function projectRoot(start: string): string {
 
 async function healthy(): Promise<boolean> {
   try {
-    const r = await fetch(`${BASE}/health`, { signal: AbortSignal.timeout(1000) });
+    const r = await fetch(`${base()}/health`, { signal: AbortSignal.timeout(1000) });
     return ((await r.json()) as { app?: string }).app === "livingboard";
   } catch {
     return false;
@@ -91,7 +92,7 @@ function ensureServer(): Promise<void> {
       await new Promise((r) => setTimeout(r, 250));
       if (await healthy()) return;
     }
-    throw new Error(`The Livingboard server does not answer on ${BASE}: see ${logFile} (port ${PORT} busy?).`);
+    throw new Error(`The Livingboard server does not answer on ${base()}: see ${logFile}.`);
   })().finally(() => {
     starting = null;
   });
@@ -117,7 +118,7 @@ async function bridge() {
     await ensureServer();
     const c = new Client({ name: "livingboard-bridge", version: VERSION });
     await c.connect(
-      new StreamableHTTPClientTransport(new URL(`${BASE}/mcp`), {
+      new StreamableHTTPClientTransport(new URL(`${base()}/mcp`), {
         requestInit: { headers: { "x-livingboard-project": encodeURIComponent(root) } },
       }),
     );
@@ -191,7 +192,8 @@ function setHook(on: boolean) {
   const s = readSettings();
   const hooks = (s.hooks ?? {}) as Record<string, HookEntry[]>;
   const list = (hooks.UserPromptSubmit ?? []).filter((e) => !e.hooks?.some((h) => h.command?.includes(HOOK_MARK)));
-  if (on) list.push({ hooks: [{ type: "command", command: `node "${HOOK}"`, timeout: 5 }] });
+  // The data folder tells the hook where to find server.json (the server's port).
+  if (on) list.push({ hooks: [{ type: "command", command: `node "${HOOK}" "${DATA_DIR}"`, timeout: 5 }] });
   if (list.length) hooks.UserPromptSubmit = list;
   else delete hooks.UserPromptSubmit;
   s.hooks = hooks;
@@ -228,7 +230,7 @@ function install(lan: boolean) {
 Done. In any project, in a new Claude Code session:
   /whiteboard          the project's "main" board
   /whiteboard ui       another board of the same project
-Boards are saved in the project, in .livingboard/boards/.${lan ? "\nThe server will be visible on the network (tablets): no authentication." : ""}
+Boards are saved in the project, in .livingboard/boards/ (with a readable .md copy of each).${lan ? "\nThe server will be visible on the network: pair a tablet with the QR code in the board's Settings." : ""}
 Note: where a project or local "livingboard" MCP server already exists (e.g. the old HTTP one), that one wins: remove it with claude mcp remove livingboard.`);
 }
 

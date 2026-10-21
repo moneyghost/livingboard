@@ -30,7 +30,7 @@ import {
 } from "@livingboard/shared";
 import { Awareness } from "y-protocols/awareness";
 import * as Y from "yjs";
-import { DATA_DIR } from "./config";
+import { boardMarkdown, writeIfChanged } from "./mirror";
 import { boardsDir, parseBoardKey, type Project } from "./projects";
 import { measure } from "./draw";
 import { type El, elementBBox, segment, unionBBox } from "./segment";
@@ -123,11 +123,12 @@ export class Board {
 
   /** The board's name as people and the agent know it (without the project). */
   readonly label: string;
-  readonly project: Project | undefined;
+  readonly project: Project;
 
-  /** `name` is the board key: `main`, or `<project id>:<board>` for a project's board. */
+  /** `name` is the board key, `<project id>:<board>`. */
   constructor(readonly name: string) {
     const k = parseBoardKey(name);
+    if (!k.project) throw new Error(`Unknown project for board ${name}`);
     this.label = k.name;
     this.project = k.project;
     this.room = new YRoom(this.doc, this.awareness);
@@ -176,8 +177,7 @@ export class Board {
   // ---------------------------------------------------------------- persistence
 
   private get file() {
-    if (this.project) return join(boardsDir(this.project), `${this.label}.ydoc`);
-    return join(DATA_DIR, `${this.label}.ydoc`);
+    return join(boardsDir(this.project), `${this.label}.ydoc`);
   }
 
   private load() {
@@ -215,6 +215,8 @@ export class Board {
       try {
         mkdirSync(dirname(this.file), { recursive: true });
         writeFileSync(this.file, Y.encodeStateAsUpdate(this.doc));
+        // A readable copy next to it, for pull requests and for agents without the MCP server.
+        writeIfChanged(this.file.replace(/.ydoc$/, ".md"), boardMarkdown(this));
       } catch (err) {
         console.error(`[board:${this.name}] cannot save`, err);
       }
@@ -452,15 +454,10 @@ export class Board {
       medium: "MEDIUM effort: interpret every ripe candidate and build what is clear.",
       high: "HIGH effort: interpret, build, and suggest ideas for obvious gaps with draw(ghost: true).",
     }[s.effort];
-    const permission = {
-      read: "READ-ONLY permissions: do not change files or external systems. Only interpret, comment, draw, attach_view.",
-      ask: "ASK permissions: before building anything, ask with ask_permission and wait for the Yes in approvals.",
-      auto: "AUTO permissions: take reversible actions (files under git) without asking; before irreversible ones (publishing, deleting, sending) ask with ask_permission and wait for the Yes.",
-    }[s.permission];
-    const mode = {
-      hybrid: "HYBRID mode: your interpretations are proposals. Build a node only when feedback says the user confirmed it.",
-      implicit: "IMPLICIT mode: your interpretations count right away. Show your assumptions so the user can correct you.",
-    }[s.mode];
+    // Claude Code's own permissions decide what may run; the board asks only before what can't be undone.
+    const permission =
+      "Take reversible actions (files under git) without asking; before irreversible ones (publishing, deleting, sending) ask with ask_permission and wait for the Yes.";
+    const mode = "Your interpretations count right away. Show your assumptions so the user can correct you.";
     const drawing =
       "Board = project: keep it in line with the project at all times, both ways. Draw what you build or decide (draw_svg for screens, objects, schemes; draw_table for comparisons, lists with attributes, statuses; draw_chart for numbers; extend for trees; draw_diagram for flows); when it changes, update it with replace: drawingId instead of adding copies; when it is outdated, delete it with erase. Changes people make to your drawings (drawingEdits) are instructions about the project. At most 20 words per element; the Document (write_doc) only for long text.";
     return [mode, effort, permission, drawing].join("\n");
@@ -1069,7 +1066,6 @@ export class Board {
     types?: { name: string; description?: string; color?: string; icon?: string; fields?: Record<string, string> }[];
     remove?: string[];
   }) {
-    const { mode } = this.settings();
     const now = Date.now();
     const results: string[] = [];
     const errors: string[] = [];
@@ -1086,13 +1082,7 @@ export class Board {
         const existing = this.nodes.get(n.id);
         const userOwned = existing?.by === "user";
         const type = userOwned ? existing.type : n.type;
-        const status: AINode["status"] = userOwned
-          ? "confirmed"
-          : mode === "implicit"
-            ? "confirmed"
-            : existing?.status === "confirmed" && existing.type === n.type
-              ? "confirmed"
-              : "proposed";
+        const status: AINode["status"] = "confirmed";
         this.nodes.set(n.id, {
           id: n.id,
           elementIds: cand.elementIds,
@@ -1121,14 +1111,13 @@ export class Board {
           continue;
         }
         const id = link?.id ?? e.id ?? `e_${from}_${to}_${e.type.replace(/\W+/g, "_")}`;
-        const existing = this.edges.get(id);
         this.edges.set(id, {
           id,
           from,
           to,
           type: e.type,
           label: e.label,
-          status: mode === "implicit" || existing?.status === "confirmed" ? "confirmed" : "proposed",
+          status: "confirmed",
           by: "ai",
           confidence: e.confidence ?? 0.8,
           updatedAt: now,
@@ -1150,7 +1139,7 @@ export class Board {
       this.log(n === 1 ? `Read “${first.label}” as ${first.type}` : `Interpreted ${n} elements`, "interpret", first.id);
     } else this.touchAgent();
 
-    return { mode, results, errors };
+    return { results, errors };
   }
 
   private upsertType(t: { name: string; description?: string; color?: string; icon?: string; fields?: Record<string, string> }) {
@@ -1315,11 +1304,11 @@ export function notifyRegistryChanged() {
 }
 
 /** By key (see `boardKey` in projects.ts). */
-export function getBoard(key = "main"): Board {
+export function getBoard(key: string): Board {
   let b = boards.get(key);
   if (!b) {
     const k = parseBoardKey(key);
-    if (k.projectId && !k.project) throw new Error(`Unknown project: ${k.projectId}`);
+    if (!k.project) throw new Error(`Unknown project: ${k.projectId ?? key}`);
     b = new Board(key);
     boards.set(key, b);
   }

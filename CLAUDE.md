@@ -11,8 +11,8 @@ Collaborative whiteboard (Excalidraw + Yjs) read by AI via MCP. User overview in
 - `pnpm pack:npm`: builds the page, then the npm package in `packages/livingboard` (`build.mjs`: esbuild bundles `cli.ts` and `index.ts` with every dependency into `dist/`, copies the page to `web/`, the hook, README and LICENSE) and packs `livingboard-<version>.tgz`. Publish: bump `version` in `packages/livingboard/package.json`, then `npm publish` from that folder (`prepack` rebuilds `dist/`, but run `pnpm build` first for the page).
 - `pnpm livingboard install [--lan]` / `uninstall`: stdio MCP server (user scope), `/whiteboard` skill, `UserPromptSubmit` hook
 - `pnpm --filter @livingboard/server exec tsx scripts/bridge-smoke.ts <folder> [board]`: tries the stdio bridge the way Claude Code would. It draws a test table on that board: point it at a throwaway folder, never a real project.
-- `pnpm --filter @livingboard/server exec tsx scripts/mcp.ts call <tool> [json|@file]`: MCP client from the terminal
-- `pnpm --filter @livingboard/server exec tsx scripts/segment-debug.ts <board> [--svg out.svg]`: offline segmentation of a saved board (SVG coloured by group)
+- `pnpm --filter @livingboard/server exec tsx scripts/mcp.ts call <tool> [json|@file]`: MCP client from the terminal (project = the current folder, or `LIVINGBOARD_PROJECT`)
+- `pnpm --filter @livingboard/server exec tsx scripts/segment-debug.ts <project>/.livingboard/boards/<board>.ydoc [--svg out.svg]`: offline segmentation of a saved board (SVG coloured by group)
 
 ## Architecture in short
 
@@ -27,17 +27,21 @@ Collaborative whiteboard (Excalidraw + Yjs) read by AI via MCP. User overview in
 - `packages/server/src/draw.ts`: all of the agent's drawings (shapes, notes, annotations, SVG scenes, tables, charts, images, `extend`). It always decides the *where*; at most 20 words per element.
 - `packages/server/src/svgpath.ts`: SVG → scene (rect, ellipse, line/path with arcs, text, arrows from markers, `<g>` transforms, inherited paint).
 - `packages/web/src/Messages.tsx`: Claude's messages on the board (bubbles open until read, ✳ mark, inbox at the top); "read" stored per device in localStorage.
-- `packages/shared/src/layout.ts`: tree layout shared by the server (`propose_layout`) and the browser (tidy button).
+- `packages/shared/src/layout.ts`: tree layout shared by the server (`propose_layout`) and the browser (*Tidy the board* in the main menu).
+- `packages/web/src/Panel.tsx`: Claude's panel is an Excalidraw `Sidebar` (name `livingboard`, tabs Activity / Document / Settings), opened by `PanelTrigger` next to Library (`renderTopRightUI`). Closed at start; docked or floating is remembered per device (`livingboard:docked`). Styles in `panel.css` use Excalidraw's CSS tokens, so it follows the dark theme. Board actions (tidy, example) live in Excalidraw's `MainMenu` in `App.tsx`.
 - `packages/web/src/Document.tsx`: Document tab (`write_doc` sections + map generated from the graph).
 - `packages/server/src/cli.ts`: `livingboard mcp` is the stdio bridge Claude Code starts in the project. Tool list from the same `createMcpServer` in memory (no server needed to list them); on the first call it starts the server detached (`data/server.log`) and forwards to `/mcp` with the `x-livingboard-project` header (the folder). It announces only short instructions (`BRIEF_INSTRUCTIONS`: every session of every project pays for them); the full rules (`INSTRUCTIONS`) come back in `open_board.rules`. `install`/`uninstall` live here too.
-- `packages/server/src/projects.ts`: projects (id = folder name + path hash, in `data/projects.json`) and board keys: `main` (global) or `<id>:<name>` (file in `<project>/.livingboard/boards/`). `Board.name` is the key (websocket, render), `Board.label` the name for people and the agent.
+- `packages/server/src/projects.ts`: projects (id = folder name + path hash, in `data/projects.json`) and board keys `<id>:<name>` (file in `<project>/.livingboard/boards/`). Every board belongs to a project: no global boards (`boardKey` throws without one), and `/` without `?p=` is the home page (`Home.tsx`, `/api/projects`). `Board.name` is the key (websocket, render), `Board.label` the name for people and the agent.
 - `packages/server/bin/livingboard-hook.mjs`: `UserPromptSubmit` hook, plain JavaScript without dependencies (runs on every prompt in every project); asks `/api/digest`, which counts changes with `Board.pending()` without consuming them and never repeats the same change in the same session.
 - `packages/server/src/image.ts`: image loading for `add_image` (format from the bytes, size from the header, id = sha1 like Excalidraw).
 
 ## Known pitfalls
 
 - Server environment variables: `LIVINGBOARD_PORT` / `LIVINGBOARD_HOST` (not `PORT`: launchers set it for Vite). `LIVINGBOARD_PROJECT` forces the project folder for bridge and hook; `LIVINGBOARD_WEB_URL` the page address.
-- `pnpm dev` passes `--dev` to the server: `open_board` points to Vite (5180) instead of the build (3333). If the bridge already started the server, `pnpm dev` finds port 3333 busy: close that process first.
+- `pnpm dev` passes `--dev` to the server: `open_board` points to Vite (5180) instead of the build (3333). If the bridge already started a server, the dev one says "already running" and exits: close that process first. Vite talks to port 3333 (`web/src/server.ts`).
+- Port: the server probes it before listening (Windows lets an IPv4 and an IPv6 server share a port silently). Another Livingboard → exit; another program → next port, up to +20, unless `LIVINGBOARD_PORT` pins it. The port goes in `<data>/server.json`: the bridge reads it (`base()` in `cli.ts`), the hook gets the data folder as its argument.
+- LAN (`lan.ts`): requests from this machine never need the token; others need the `livingboard_token` cookie (set by `/?t=<token>` from the QR code, then a redirect without it) or `Authorization: Bearer`, for pages, API and websockets. `/mcp` is loopback only. Token in `<data>/lan.json`; `POST /api/lan/reset` (loopback only) replaces it.
+- Readable copy (`mirror.ts`): every save also writes `<board>.md` next to the `.ydoc` (only when it changed; stable order, no timestamps). Generated, never read back.
 - The stdio bridge must not write to stdout (it is the MCP channel): logs go to stderr only.
 - Hand-written Yjs sync in `yserver.ts`: `@y/websocket-server` requires yjs 14.
 - Excalidraw colours remote cursors from a hash of the `id`: "claude-52" gives the AI orange.
@@ -54,13 +58,14 @@ Collaborative whiteboard (Excalidraw + Yjs) read by AI via MCP. User overview in
 - In dev, `window.__excalidraw` and `window.__collab` are exposed for debugging.
 - No domain logic in the core (server, web, shared): no Minecraft or the like. The domain lives in the agent and its folder; `demo/` is only a usage example.
 - Images: data lives in `DOC.files` (fileId → BinaryFileData), elements only carry the `fileId`. The browser shares only files used by live images (Excalidraw keeps old ones in memory too); the server deletes the file replaced by `replace`, and at startup the ones no element uses.
-- `add_image` with `path` works only for loopback MCP clients (`createMcpServer({ local })`): with `--lan` the MCP endpoint is reachable from the network.
+- `add_image` with `path` works only for loopback MCP clients (`createMcpServer({ local })`); `/mcp` refuses everything else anyway.
+- No board settings for permissions or recognition mode: Claude Code's permissions decide what runs, the policy says to ask on the board before irreversible actions, and interpretations are always confirmed. Only `effort` is left in `Settings`.
 - Mermaid → Excalidraw runs in the browser (`rpc.ts`, dynamic import of `@excalidraw/mermaid-to-excalidraw`): `draw_diagram` needs an open board, like `get_board_image`.
 - AI drawings tied to a node carry `customData.livingboard.nodeId`: they follow the node when it is rearranged and widen its footprint (`footprint`).
 - A candidate's hash is over the elements' *content*, not their position: moving things does not trigger a re-read (`HASH_VERSION` in `board.ts` migrates old boards).
 - Placement (`Drawer.place`): candidates on a grid aligned to the anchor, all around it; the cheapest free one wins: closeness + growth of the board's perimeter + distance from a screen-shaped board (against strips) + a slight right/below preference; the parts of one call without `near` stay a compact group. Without an anchor the reference is `focus()`: the latest human elements touched (`updated`). Notes go to the free spot closest to the node, no longer in the margin.
 - Layout of AI drawings (`draw.ts`): existing arrows are paths (`lines`), not rectangles; `extend` scores fan/comb layouts at several distances (overlaps, arrows over text, crossings, distance) and keeps arrows straight or elbowed; `route()` (arrows of `draw`) tries straight, curved, elbow.
-- Clean board by default: lens off (`livingboard:lens`), a label only on the selected idea, on the open card and on proposals in hybrid mode. Bubbles and labels avoid arrows, AI drawings and other nodes (`cost()` in `Overlay.tsx`).
+- Clean board by default: lens off (`livingboard:lens`), a label only on the selected idea, on the open card and on proposals still waiting for a yes (old boards: the hybrid mode is gone, interpretations are always confirmed). Bubbles and labels avoid arrows, AI drawings and other nodes (`cost()` in `Overlay.tsx`).
 - AI lens on: below zoom 0.5 only big titles; relation labels from 0.7 up; views only when opened (local) or pinned (`pinned`, shared).
 - Agent drawings: every call of a drawing tool = one `drawingId` in `customData.livingboard` (with `kind`, `title`, `nodeId`). `replace` deletes the old one and (for svg/tables/charts) puts the new one in its place; `erase` deletes. `board_overview.drawings` lists them.
 - Human edits to the agent's drawings: `board.ts` compares their content (texts, parts, images) once they settle; moving does not count. They arrive in `wait_for_changes.drawingEdits` with `added`/`removed`. Server writes (origin `SERVER`) only update the comparison base.

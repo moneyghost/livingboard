@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { DATA_DIR } from "./config";
 
@@ -89,9 +89,20 @@ export function savedBoards(p: Project): string[] {
     .map((f) => f.slice(0, -5));
 }
 
-/** Board key: what the browser and the server share. `main` alone is the global board of old. */
+/** Board key: what the browser and the server share, `<project id>:<board>`. Every board belongs to a project. */
 export function boardKey(project: Project | undefined, name?: string): string {
-  return project ? `${project.id}:${cleanBoardName(name)}` : cleanBoardName(name);
+  if (!project) throw new Error("Livingboard boards belong to a project: open them from Claude Code in the project folder (/whiteboard).");
+  return `${project.id}:${cleanBoardName(name)}`;
+}
+
+/** Registered projects whose folder still exists, with their saved boards (for the home page). */
+export function listProjects(): (Project & { boards: { name: string; updatedAt: number }[] })[] {
+  return [...all().values()]
+    .filter((p) => existsSync(p.root))
+    .map((p) => {
+      const dir = boardsDir(p);
+      return { ...p, boards: savedBoards(p).map((name) => ({ name, updatedAt: statSync(join(dir, `${name}.ydoc`)).mtimeMs })) };
+    });
 }
 
 export function parseBoardKey(key: string): { project?: Project; projectId?: string; name: string } {

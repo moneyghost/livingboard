@@ -21,7 +21,9 @@ const outDir = resolve(outIdx >= 0 ? args.splice(outIdx, 2)[1] : ".");
 const [cmd, tool, rawArgs] = args;
 
 const client = new Client({ name: "livingboard-cli", version: "0.1.0" });
-await client.connect(new StreamableHTTPClientTransport(new URL(url)));
+// Boards belong to a project: this folder (or LIVINGBOARD_PROJECT), like the bridge.
+const project = encodeURIComponent(process.env.LIVINGBOARD_PROJECT ?? process.cwd());
+await client.connect(new StreamableHTTPClientTransport(new URL(url), { requestInit: { headers: { "x-livingboard-project": project } } }));
 
 if (cmd === "list") {
   const { tools } = await client.listTools();

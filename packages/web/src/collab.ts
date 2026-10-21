@@ -14,10 +14,10 @@ import { generateKeyBetween } from "fractional-indexing";
 import { WebsocketProvider } from "y-websocket";
 import * as Y from "yjs";
 import type { Identity } from "./identity";
+import { SERVER_HOST } from "./server";
 
 const LOCAL = "local";
 
-export const SERVER_HOST = import.meta.env.DEV ? `${location.hostname}:3333` : location.host;
 const WS = location.protocol === "https:" ? "wss" : "ws";
 
 type El = ExcalidrawElement;

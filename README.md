@@ -28,7 +28,9 @@ Then in **any project**, in a new Claude Code session:
 /whiteboard ui       another board of the same project
 ```
 
-Claude opens the board in the browser and works on it. Nothing to start by hand: the server starts by itself on the first call and stays up for all projects. A project's boards are saved **in the project**, in `.livingboard/boards/<name>.ydoc`, so they travel and are versioned with the code. For a tablet: `livingboard install --lan` (the server becomes reachable on the network; `open_board` also returns the addresses for the iPad).
+Claude opens the board in the browser and works on it. Nothing to start by hand: the server starts by itself on the first call and stays up for all projects. A project's boards are saved **in the project**, in `.livingboard/boards/<name>.ydoc`, so they travel and are versioned with the code. Next to each one Livingboard writes `<name>.md`, a readable copy (Document, ideas and relations, Claude's drawings): it shows up in diffs and pull requests, and any agent can read it without the MCP server. http://localhost:3333 lists every project and its boards.
+
+For a tablet: `livingboard install --lan` makes the server reachable on your network. Each device pairs once: on the computer open a board, then **✳ Claude → Settings → Other devices**, and scan the QR code with the tablet. Devices without the code see nothing; *Unpair all devices* revokes them.
 
 What `livingboard install` sets up (user scope; `livingboard uninstall` removes it):
 
@@ -36,7 +38,7 @@ What `livingboard install` sets up (user scope; `livingboard uninstall` removes 
 - the `/whiteboard` skill in `~/.claude/skills/whiteboard/`;
 - a `UserPromptSubmit` hook in `~/.claude/settings.json`: on every message, if something changed on the project's board since the last message, Claude knows (one line of context, no wait if the server is off).
 
-Global boards, the project registry and the server log live in `~/.livingboard/` (`LIVINGBOARD_DATA` to move them). `livingboard start [--lan]` runs the server in the foreground, to use boards without Claude Code (http://localhost:3333). After `npm update -g livingboard`, run `livingboard install` again only if the package moved (a different Node.js install).
+The project registry, the LAN access token and the server log live in `~/.livingboard/` (`LIVINGBOARD_DATA` to move them). `livingboard start [--lan]` runs the server in the foreground, to use boards without Claude Code (http://localhost:3333). If another program already uses port 3333, the server takes the next free one and Claude Code finds it by itself (`LIVINGBOARD_PORT` pins a port). After `npm update -g livingboard`, run `livingboard install` again only if the package moved (a different Node.js install).
 
 On an empty board there is a **Load the example: weather app** button.
 
@@ -47,7 +49,7 @@ pnpm install
 pnpm livingboard install
 ```
 
-Same commands as above, prefixed with `pnpm` and run from the repo; data then lives in the repo's `data/`. To develop Livingboard: `pnpm dev` (board on http://localhost:5180, on the network with `pnpm dev:lan`). The bridge uses the dev server if it is already running. Global boards, outside a project: `claude mcp add --transport http livingboard http://localhost:3333/mcp` and `/mcp__livingboard__start`.
+Same commands as above, prefixed with `pnpm` and run from the repo; data then lives in the repo's `data/`. To develop Livingboard: `pnpm dev` (board on http://localhost:5180, on the network with `pnpm dev:lan`). The bridge uses the dev server if it is already running.
 Without Claude you can check the loop with a fake agent: `pnpm smoke`. `pnpm pack:npm` builds the npm package (`packages/livingboard`).
 
 ## How it works
@@ -72,7 +74,7 @@ Three layers, from drawing to meaning:
 
 ### iPad and tablets (GoodNotes style)
 
-Tablet mode turns on by itself on iPad (or from the panel, or with `?tablet=1`):
+Tablet mode turns on by itself on iPad (or from the panel's Settings, or with `?tablet=1`):
 
 - **Apple Pencil draws, fingers navigate**: one finger pans, two fingers zoom, a resting palm is ignored.
 - **Two-finger tap = undo, three-finger tap = redo**; the ↶ ↷ buttons are at the top anyway.
@@ -87,7 +89,7 @@ On desktop the Excalidraw tools stay, with two clear *Undo* / *Redo* buttons at 
 - **Just drawings**: by default there are no labels over the board. Select something and you see how Claude read it (type and name, with the card to correct it); the **AI lens** in the panel shows labels, relations and status on every idea, for those who want them.
 - **Claude's messages show up right away**: answers and questions appear open next to what they are about, until you press *Ok* or reply right there; then they stay as a small ✳ (or an orange **?** if Claude is waiting for an answer). Those about the whole board, off screen, or when zoomed far out sit in an inbox at the top with *Go there*. "Read" is per device.
 - **No overlaps**: messages and labels avoid arrows, drawings and other ideas; views open only on request, or stay open for everyone when pinned 📌.
-- **Tidy the board**: from the panel (or proposed by Claude) a tree layout that follows your arrows. You see a ghost preview and nothing moves until you press *Apply*; Claude's drawings tied to a node follow it.
+- **Tidy the board**: from the main menu (or proposed by Claude) a tree layout that follows your arrows. You see a ghost preview and nothing moves until you press *Apply*; Claude's drawings tied to a node follow it.
 
 ### Claude draws, and keeps it up to date
 
@@ -111,9 +113,9 @@ Claude writes on the board in the language people use there.
 ### How the AI works
 
 - **Maturation**: a candidate reaches the agent only when nobody has touched it for a few seconds, so a text is never read half-written. No waiting indicators on the canvas: the status is one line in the panel.
-- **Recognition**: *implicit* (the AI interprets and acts right away, you correct) or *hybrid* (the AI proposes, you confirm with ✓).
+- **Recognition**: the AI interprets and acts right away; you correct it on the board when it gets it wrong.
 - **Effort**: low (only `@AI` questions), medium, high (also proposes "ghost" ideas to keep or discard).
-- **Permissions**: read-only, ask, auto (reversible actions without asking, irreversible ones always confirmed).
+- **Permissions**: Claude Code's own permissions decide what runs; on top of that Claude asks on the board (☐ Yes ☐ No) before anything irreversible.
 - **Never stuck**: if a detail is missing it picks a sensible value and shows it as a ⚠ assumption you can correct.
 - **Never touches human strokes**: it draws only with its own elements, marked as AI.
 - Every human correction (confirm, discard, change of type, answer, edit from a view) goes back to the agent as feedback.
@@ -183,15 +185,15 @@ demo/minecraft-pack  usage example: a Minecraft add-on built by Claude from a bo
 Handy:
 
 - `pnpm --filter @livingboard/server exec tsx scripts/mcp.ts call board_overview`: MCP client from the terminal (`@file.json` for long arguments, `--out` to save images).
-- Project boards: `?p=<project id>&board=name` (the id is the folder name + a hash of the path, registered in `data/projects.json`); files in `<project>/.livingboard/boards/`. Global boards: `?board=name`, file in `data/<name>.ydoc`.
+- Boards: `?p=<project id>&board=name` (the id is the folder name + a hash of the path, registered in `data/projects.json`); files in `<project>/.livingboard/boards/`. Every board belongs to a project; without `?p=` the page lists projects and boards.
 - `pnpm --filter @livingboard/server exec tsx scripts/bridge-smoke.ts <folder> [board]`: talks to the stdio bridge like Claude Code (it draws a test table: use a throwaway folder).
 - The server started by the bridge logs to `data/server.log`.
 - `pnpm build && pnpm start`: a single process on http://localhost:3333 (board + MCP).
-- `LIVINGBOARD_PORT`, `LIVINGBOARD_HOST`, `LIVINGBOARD_DATA` for port, interface and data folder.
+- `LIVINGBOARD_PORT`, `LIVINGBOARD_HOST`, `LIVINGBOARD_DATA` for port, interface and data folder. The running server writes its port in `server.json` in the data folder; the bridge and the hook read it.
 
 ## Security
 
-The server listens only on `127.0.0.1` and refuses browser requests from foreign origins. There is no authentication: if you expose it on the network (`LIVINGBOARD_HOST=0.0.0.0`) anyone who can reach it can edit the board and talk to the agent. Only an agent on the same computer can say which project folder it belongs to (`x-livingboard-project`), because the server writes the boards there; the browser opens a project board only if that project was already registered by a local agent. `add_image` reads files by path only if the agent is on the same computer as the server (callers from the network can only pass a url or base64), and accepts only files that really are images. Board content reaches the agent as data, but permissions (read-only / ask) remain the main defence when you collaborate with people you don't trust.
+The server listens only on `127.0.0.1` and refuses browser requests from foreign origins. With `--lan` (`LIVINGBOARD_HOST=0.0.0.0`) other devices need the access token, which they get once from the QR code shown on this computer (kept as an HttpOnly cookie; *Unpair all devices* replaces it). The MCP endpoint answers only on this computer. The token is sent over plain HTTP: use `--lan` on networks you trust. Only an agent on the same computer can say which project folder it belongs to (`x-livingboard-project`), because the server writes the boards there; the browser opens a project board only if that project was already registered by a local agent. `add_image` reads files by path only if the agent is on the same computer as the server (callers from the network can only pass a url or base64), and accepts only files that really are images. Board content reaches the agent as data, but Claude Code's permissions remain the main defence when you collaborate with people you don't trust.
 
 ## Known limits
 
@@ -204,8 +206,7 @@ The server listens only on `127.0.0.1` and refuses browser requests from foreign
 ## Roadmap
 
 - Always-on server-side agent (Agent SDK) as an alternative to the MCP loop.
-- Measured comparison between hybrid and implicit recognition.
-- Authentication and remote boards.
+- Remote boards (outside your network).
 
 ## License
 

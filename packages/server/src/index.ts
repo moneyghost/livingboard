@@ -1,12 +1,14 @@
-import { createReadStream, existsSync, statSync } from "node:fs";
+import { createReadStream, existsSync, mkdirSync, statSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { connect } from "node:net";
 import { extname, join, normalize } from "node:path";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { WebSocketServer } from "ws";
 import { getBoard, notifyRegistryChanged, openBoardsOf } from "./board";
-import { BUNDLED, DEV, HOST, lanAddresses, PORT, WEB_DIST } from "./config";
+import { BUNDLED, DATA_DIR, DEFAULT_PORT, DEV, HOST, lanAddresses, PORT, PORT_PINNED, SERVER_INFO, setPort, WEB_DIST } from "./config";
+import { authorized, isLocal, LAN, lanToken, resetLanToken, tokenCookie, validToken } from "./lan";
 import { createMcpServer } from "./mcp";
-import { getProject, parseBoardKey, type Project, registerProject } from "./projects";
+import { getProject, listProjects, parseBoardKey, type Project, registerProject } from "./projects";
 import { deleteView, listViews, saveView } from "./registry";
 import { registerRenderer } from "./render";
 
@@ -36,11 +38,6 @@ function originAllowed(req: IncomingMessage): boolean {
   } catch {
     return false;
   }
-}
-
-function isLocal(req: IncomingMessage): boolean {
-  const ip = req.socket.remoteAddress ?? "";
-  return ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1";
 }
 
 /**
@@ -86,6 +83,11 @@ async function handleViews(req: IncomingMessage, res: ServerResponse, name: stri
 }
 
 async function handleMcp(req: IncomingMessage, res: ServerResponse) {
+  // Only the bridge on this machine talks MCP: it says which project it works for.
+  if (!isLocal(req)) {
+    res.writeHead(403).end("MCP is only available on this machine");
+    return;
+  }
   if (req.method !== "POST") {
     res.writeHead(405, { Allow: "POST" }).end("Stateless MCP endpoint: POST only");
     return;
@@ -99,8 +101,7 @@ async function handleMcp(req: IncomingMessage, res: ServerResponse) {
   }
   // Stateless: a fresh server per request. Board state lives in the Board registry.
   // SSE responses keep long waits (wait_for_changes) alive with keep-alive frames.
-  // Agents on this machine may hand over files by path; LAN clients may not.
-  const server = createMcpServer({ local: isLocal(req), project: projectOf(req) });
+  const server = createMcpServer({ local: true, project: projectOf(req) });
   const transport = new WebStandardStreamableHTTPServerTransport({ sessionIdGenerator: undefined });
   const abort = new AbortController();
   res.on("close", () => {
@@ -152,6 +153,36 @@ async function handleDigest(req: IncomingMessage, res: ServerResponse) {
   json(res, 200, { project: project.id, boards: fresh ? boards : [] });
 }
 
+/** Pairing info for the QR code: other devices open the board with the token once. */
+function handleLan(req: IncomingMessage, res: ServerResponse, reset: boolean) {
+  if (reset) {
+    if (req.method !== "POST" || !isLocal(req)) return json(res, 403, { error: "only on this computer" });
+    resetLanToken();
+  }
+  json(res, 200, LAN ? { enabled: true, port: PORT, addresses: lanAddresses(), token: lanToken() } : { enabled: false, port: PORT });
+}
+
+/** Projects with their boards, for the home page. */
+function handleProjects(res: ServerResponse) {
+  json(
+    res,
+    200,
+    listProjects().map((p) => ({
+      ...p,
+      boards: [...new Set([...p.boards.map((b) => b.name), ...openBoardsOf(p.id).map((b) => b.label)])]
+        .map((name) => ({ name, updatedAt: p.boards.find((b) => b.name === name)?.updatedAt ?? Date.now() }))
+        .sort((a, b) => b.updatedAt - a.updatedAt),
+    })),
+  );
+}
+
+const LOCKED = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Livingboard</title>
+<body style="font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:90vh;margin:0;color:#1f2328;text-align:center;padding:16px">
+<div><div style="font-size:2rem;color:#d97757;font-weight:700">✳ Livingboard</div>
+<p>This device is not paired yet.</p>
+<p style="color:#6b7280">On the computer running Livingboard, open the board, then <b>✳ Claude → Settings → Other devices</b> and scan the QR code.</p></div>`;
+
 function serveStatic(req: IncomingMessage, res: ServerResponse, pathname: string) {
   if (!existsSync(WEB_DIST)) {
     res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
@@ -183,10 +214,24 @@ const http = createServer(async (req, res) => {
   }
   try {
     if (url.pathname === "/mcp") return await handleMcp(req, res);
-    const views = /^\/api\/views(?:\/([\w-]+))?\/?$/.exec(url.pathname);
-    if (views) return await handleViews(req, res, views[1]);
     if (url.pathname === "/api/digest") return await handleDigest(req, res);
     if (url.pathname === "/health") return json(res, 200, { ok: true, app: "livingboard", dev: DEV });
+    if (!authorized(req)) {
+      // Opened from the QR code: keep the token as a cookie and drop it from the address.
+      const t = url.searchParams.get("t");
+      if (req.method === "GET" && validToken(t)) {
+        url.searchParams.delete("t");
+        res.writeHead(302, { "Set-Cookie": tokenCookie(), Location: url.pathname + url.search }).end();
+        return;
+      }
+      if (url.pathname.startsWith("/api/")) return json(res, 401, { error: "not paired" });
+      res.writeHead(401, { "Content-Type": "text/html; charset=utf-8" }).end(LOCKED);
+      return;
+    }
+    if (url.pathname === "/api/lan" || url.pathname === "/api/lan/reset") return handleLan(req, res, url.pathname.endsWith("/reset"));
+    if (url.pathname === "/api/projects") return handleProjects(res);
+    const views = /^\/api\/views(?:\/([\w-]+))?\/?$/.exec(url.pathname);
+    if (views) return await handleViews(req, res, views[1]);
     serveStatic(req, res, url.pathname);
   } catch (err) {
     console.error(err);
@@ -205,9 +250,9 @@ http.on("upgrade", (req, socket, head) => {
   } catch {
     // malformed: refused below
   }
-  // A project board opens only if a local agent registered the project.
+  // Boards belong to projects: one opens only if a local agent registered its project.
   const k = parseBoardKey(key);
-  if (!originAllowed(req) || !key || (k.projectId && !getProject(k.projectId)) || (channel !== "yjs" && channel !== "rpc")) {
+  if (!originAllowed(req) || !authorized(req) || !k.projectId || !getProject(k.projectId) || (channel !== "yjs" && channel !== "rpc")) {
     socket.destroy();
     return;
   }
@@ -217,14 +262,69 @@ http.on("upgrade", (req, socket, head) => {
   });
 });
 
-http.listen(PORT, HOST, () => {
-  console.log(`\n  ✳ Livingboard server  http://${HOST}:${PORT}`);
-  if (HOST === "0.0.0.0") {
-    for (const ip of lanAddresses()) {
-      console.log(`    Network          ${BUNDLED ? "" : `http://${ip}:5180 (dev) · `}http://${ip}:${PORT}${BUNDLED ? "" : " (build)"}`);
+/**
+ * Another program may hold the port (3333 is also AdonisJS's default): move to the next
+ * free one and say where in server.json, which the bridge and the hook read. If the
+ * holder is another Livingboard server, this one is not needed. The port is probed
+ * before listening because Windows lets an IPv4 and an IPv6 server share it silently.
+ */
+async function probe(port: number): Promise<"free" | "livingboard" | "other"> {
+  for (const host of ["127.0.0.1", "::1"]) {
+    const open = await new Promise<boolean>((done) => {
+      const sock = connect({ host, port });
+      sock.setTimeout(500, () => {
+        sock.destroy();
+        done(false);
+      });
+      sock.once("connect", () => {
+        sock.destroy();
+        done(true);
+      });
+      sock.once("error", () => done(false));
+    });
+    if (!open) continue;
+    try {
+      const r = await fetch(`http://${host.includes(":") ? `[${host}]` : host}:${port}/health`, { signal: AbortSignal.timeout(1000) });
+      return ((await r.json()) as { app?: string }).app === "livingboard" ? "livingboard" : "other";
+    } catch {
+      return "other";
     }
-    console.log("    ⚠ No authentication: anyone on this network can edit the board.");
   }
-  console.log(`    MCP endpoint     http://${HOST}:${PORT}/mcp`);
+  return "free";
+}
+
+async function listen() {
+  for (;;) {
+    const state = await probe(PORT);
+    if (state === "free") break;
+    if (state === "livingboard") {
+      console.log(`Livingboard is already running on port ${PORT}.`);
+      process.exit(0);
+    }
+    if (PORT_PINNED || PORT >= DEFAULT_PORT + 20) {
+      console.error(`Port ${PORT} is busy: set LIVINGBOARD_PORT to a free port.`);
+      process.exit(1);
+    }
+    setPort(PORT + 1);
+  }
+  http.listen(PORT, HOST);
+}
+
+// Lost a race for the port after probing: probe it again (another Livingboard, or move on).
+http.on("error", (err: NodeJS.ErrnoException) => {
+  if (err.code !== "EADDRINUSE") throw err;
+  void listen();
+});
+
+http.on("listening", () => {
+  mkdirSync(DATA_DIR, { recursive: true });
+  writeFileSync(SERVER_INFO, `${JSON.stringify({ port: PORT, host: HOST, pid: process.pid }, null, 2)}\n`);
+  console.log(`\n  ✳ Livingboard server  http://${HOST}:${PORT}`);
+  if (LAN) {
+    for (const ip of lanAddresses()) console.log(`    Network          http://${ip}:${PORT}/?t=${lanToken()}`);
+    console.log("    Other devices open it once with the link above, or with the QR code in the board's Settings.");
+  }
   console.log(`    Claude Code      ${BUNDLED ? "livingboard" : "pnpm livingboard"} install, then /whiteboard [name] in any project\n`);
 });
+
+void listen();

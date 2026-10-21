@@ -4,7 +4,7 @@ import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import type { BBox } from "@livingboard/shared";
 import { generateKeyBetween, generateNKeysBetween } from "fractional-indexing";
-import { SERVER_HOST } from "./collab";
+import { SERVER_HOST } from "./server";
 import { elementBBox, findFreeSpot } from "./geometry";
 
 const WS = location.protocol === "https:" ? "wss" : "ws";

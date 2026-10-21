@@ -7,10 +7,19 @@
  * context if anything did. Plain JavaScript and no imports beyond Node: it
  * runs on every prompt, in every project, so it must be quick and silent.
  */
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
-const PORT = Number(process.env.LIVINGBOARD_PORT ?? 3333);
+/** The server writes its port in <data folder>/server.json (`livingboard install` passes the folder). */
+function serverPort() {
+  if (process.env.LIVINGBOARD_PORT) return Number(process.env.LIVINGBOARD_PORT);
+  try {
+    if (process.argv[2]) return JSON.parse(readFileSync(join(process.argv[2], "server.json"), "utf8")).port ?? 3333;
+  } catch {
+    // no server.json yet: the default port
+  }
+  return 3333;
+}
 
 /** Nearest folder with Livingboard boards (the bridge saved them there). Mirrors `projectRoot` in src/cli.ts. */
 function boardsRoot(start) {
@@ -35,7 +44,7 @@ async function main() {
 
   let digest;
   try {
-    const r = await fetch(`http://127.0.0.1:${PORT}/api/digest`, {
+    const r = await fetch(`http://127.0.0.1:${serverPort()}/api/digest`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ root, session }),

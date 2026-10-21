@@ -18,7 +18,9 @@ type Link = { id: string; label?: string };
 type Report = { changes: Change[]; links: Link[]; removed: { id: string }[]; feedback: { kind: string; user: string }[]; idle: boolean };
 
 const client = new Client({ name: "livingboard-smoke", version: "0.1.0" });
-await client.connect(new StreamableHTTPClientTransport(new URL(url)));
+// Boards belong to a project: this folder (or LIVINGBOARD_PROJECT), like the bridge.
+const project = encodeURIComponent(process.env.LIVINGBOARD_PROJECT ?? process.cwd());
+await client.connect(new StreamableHTTPClientTransport(new URL(url), { requestInit: { headers: { "x-livingboard-project": project } } }));
 
 async function call<T = unknown>(name: string, args: Record<string, unknown> = {}): Promise<T> {
   const res = await client.callTool({ name, arguments: args }, undefined, { timeout: 120_000 });

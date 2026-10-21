@@ -278,20 +278,14 @@ export function slugify(s: string): string {
   );
 }
 
-export type Mode = "hybrid" | "implicit";
 export type Effort = "low" | "medium" | "high";
-export type Permission = "read" | "ask" | "auto";
 
 export interface Settings {
-  mode: Mode;
   effort: Effort;
-  permission: Permission;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
-  mode: "implicit",
   effort: "medium",
-  permission: "auto",
 };
 
 /** How long a candidate must stay untouched before the agent reads it. */

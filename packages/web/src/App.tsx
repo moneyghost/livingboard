@@ -1,4 +1,4 @@
-import { CaptureUpdateAction, Excalidraw, WelcomeScreen } from "@excalidraw/excalidraw";
+import { CaptureUpdateAction, Excalidraw, MainMenu, WelcomeScreen } from "@excalidraw/excalidraw";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 import type { AppState, BinaryFiles, ExcalidrawImperativeAPI, NormalizedZoomValue } from "@excalidraw/excalidraw/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -12,21 +12,39 @@ import type { Viewport } from "./geometry";
 import { useYMap } from "./hooks";
 import { loadIdentity } from "./identity";
 import { Overlay } from "./Overlay";
-import { Panel } from "./Panel";
+import { Panel, PanelTrigger, type PanelTab } from "./Panel";
 import { redo, undo } from "./history";
 import { refreshViews } from "./registry";
 import { startRenderer } from "./rpc";
 
 const params = new URLSearchParams(location.search);
 const board = params.get("board")?.trim() || "main";
-// A project's board (opened by /whiteboard in Claude Code): the server knows the project by its id.
-const project = params.get("p")?.trim() || null;
-/** What the server calls this board: `main`, or `<project>:<board>`. */
-const boardKey = project ? `${project}:${board}` : board;
+// Every board belongs to a project (opened by /whiteboard in Claude Code): the server knows it by its id.
+// Without one, main.tsx shows the home page instead.
+const project = params.get("p")?.trim() ?? "";
+/** What the server calls this board: `<project>:<board>`. */
+const boardKey = `${project}:${board}`;
 // The id is `<folder name>-<hash>`: the name alone is enough for people.
-const projectName = project?.replace(/-[0-9a-f]{6}$/, "") ?? null;
-document.title = projectName ? `${board} · ${projectName} · Livingboard` : `${board} · Livingboard`;
+const projectName = project.replace(/-[0-9a-f]{6}$/, "");
+document.title = `${board} · ${projectName} · Livingboard`;
 const me = loadIdentity();
+
+// Menu icons drawn like Excalidraw's own (24px grid, thin round strokes).
+const svgProps = { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round", strokeLinejoin: "round" } as const;
+const TidyIcon = (
+  <svg {...svgProps}>
+    <rect x="9" y="3" width="6" height="6" rx="2" />
+    <rect x="3" y="15" width="6" height="6" rx="2" />
+    <rect x="15" y="15" width="6" height="6" rx="2" />
+    <path d="M6 15v-1a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v1M12 9v3" />
+  </svg>
+);
+const ExampleIcon = (
+  <svg {...svgProps}>
+    <path d="M9 16a5 5 0 1 1 6 0a3.5 3.5 0 0 0-1 3a2 2 0 0 1-4 0a3.5 3.5 0 0 0-1-3" />
+    <path d="M9.7 17h4.6" />
+  </svg>
+);
 
 export default function App() {
   const collab = useMemo(() => new Collab(boardKey, me), []);
@@ -66,6 +84,23 @@ export default function App() {
       // ignore
     }
   };
+  // The panel opens on demand (closed at start); docked or floating is remembered per device.
+  const [docked, setDockedState] = useState(() => {
+    try {
+      return localStorage.getItem("livingboard:docked") !== "0";
+    } catch {
+      return true;
+    }
+  });
+  const setDocked = (v: boolean) => {
+    setDockedState(v);
+    try {
+      localStorage.setItem("livingboard:docked", v ? "1" : "0");
+    } catch {
+      // ignore
+    }
+  };
+  const [panelTab, setPanelTab] = useState<PanelTab | null>(null);
   const elements = useYMap(collab.elements);
   const lastPointer = useRef(0);
   const frame = useRef(0);
@@ -147,6 +182,11 @@ export default function App() {
     api.scrollToContent(added, { fitToViewport: true, viewportZoomFactor: 0.7, animate: true });
   };
 
+  const tidy = () => {
+    if (model.proposal.has("current")) api?.setToast({ message: "A tidy preview is already open on the board." });
+    else if (!model.proposeLayout()) api?.setToast({ message: "Nothing to tidy: it needs ideas connected by arrows." });
+  };
+
   const focusNode = (nodeId: string) => {
     const c = model.candidates.get(nodeId);
     if (!api || !c) return;
@@ -160,7 +200,7 @@ export default function App() {
   };
 
   return (
-    <div className={`app ${device.tablet ? "tablet" : ""} tool-${activeTool}`}>
+    <div className={`app ${device.tablet ? "tablet" : ""} ${panelTab === "doc" ? "panel-wide" : ""} tool-${activeTool}`}>
       <div className="canvas-wrap" ref={canvasRef}>
         <Excalidraw
           // Excalidraw hands over its API from its constructor (mid-render): store it on the next tick.
@@ -175,9 +215,43 @@ export default function App() {
           }}
           isCollaborating
           langCode="en"
-          name={projectName ? `${projectName} · ${board}` : `Livingboard · ${board}`}
+          name={`${projectName} · ${board}`}
           UIOptions={{ canvasActions: { loadScene: false, saveToActiveFile: false } }}
+          renderTopRightUI={() => <PanelTrigger model={model} />}
         >
+          <MainMenu>
+            <MainMenu.DefaultItems.Export />
+            <MainMenu.DefaultItems.SaveAsImage />
+            <MainMenu.DefaultItems.SearchMenu />
+            <MainMenu.DefaultItems.Help />
+            <MainMenu.DefaultItems.ClearCanvas />
+            <MainMenu.Separator />
+            <MainMenu.Item icon={TidyIcon} onSelect={tidy}>
+              Tidy the board
+            </MainMenu.Item>
+            <MainMenu.Item icon={ExampleIcon} onSelect={loadExample}>
+              Load example: weather app
+            </MainMenu.Item>
+            <MainMenu.Separator />
+            <MainMenu.DefaultItems.ToggleTheme />
+            <MainMenu.DefaultItems.ChangeCanvasBackground />
+          </MainMenu>
+          <Panel
+            model={model}
+            board={board}
+            project={projectName}
+            me={me}
+            lens={lens}
+            showBoxes={showBoxes}
+            onShowBoxes={setShowBoxes}
+            onLens={setLens}
+            onFocus={focusNode}
+            tablet={device.tablet}
+            onTablet={(tablet) => setDevice({ tablet })}
+            docked={docked}
+            onDock={setDocked}
+            onTabChange={setPanelTab}
+          />
           <WelcomeScreen>
             <WelcomeScreen.Center>
               <WelcomeScreen.Center.Logo>
@@ -215,20 +289,6 @@ export default function App() {
           onUngroup={() => model.releaseFromGroups(selection)}
         />
       </div>
-      <Panel
-        model={model}
-        board={board}
-        project={projectName}
-        me={me}
-        lens={lens}
-        showBoxes={showBoxes}
-        onShowBoxes={setShowBoxes}
-        onLens={setLens}
-        onExample={loadExample}
-        onFocus={focusNode}
-        tablet={device.tablet}
-        onTablet={(tablet) => setDevice({ tablet })}
-      />
     </div>
   );
 }

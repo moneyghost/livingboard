@@ -1,10 +1,10 @@
 import type { SavedView } from "@livingboard/shared";
 import { useEffect, useState } from "react";
-import { SERVER_HOST } from "./collab";
+import { API } from "./server";
 
 /** Client side of the view registry (shared by every board on the server). */
 
-const BASE = `${location.protocol}//${SERVER_HOST}/api/views`;
+const BASE = `${API}/views`;
 let views: SavedView[] = [];
 const subscribers = new Set<(v: SavedView[]) => void>();
 

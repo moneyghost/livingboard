@@ -9,7 +9,6 @@ import {
   type Comment,
   type OntologyType,
   type SavedView,
-  type Settings,
   livingboardData,
   type ViewDef,
   viewMatches,
@@ -81,7 +80,6 @@ export function Overlay({ model, board, viewport: v, lens, selection, onFocus, s
   const comments = useYMap(model.comments);
   const views = useYMap(model.views);
   const agentMap = useYMap(model.agent);
-  const settingsMap = useYMap(model.settings);
   const proposalMap = useYMap(model.proposal);
   const now = useNow(1000);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -94,7 +92,6 @@ export function Overlay({ model, board, viewport: v, lens, selection, onFocus, s
   /** A read conversation reopened from its mark. */
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  const mode = (settingsMap.get("mode") as Settings["mode"]) ?? "implicit";
   const agent = agentMap.get("state") as AgentState | undefined;
   const agentFocus = agent && now - agent.lastSeen < 6000 ? agent.nodeId : undefined;
   const far = v.zoom < FAR_ZOOM;
@@ -180,11 +177,11 @@ export function Overlay({ model, board, viewport: v, lens, selection, onFocus, s
   const blocked = (rect: BBox, selfId: string, placed: BBox[]) => cost(rect, selfId, placed) > 0;
 
   // With the lens off, a label appears only where it is needed: the idea you selected,
-  // the one whose card is open, proposals waiting for a yes in hybrid mode.
+  // the one whose card is open, proposals still waiting for a yes (left over from the old hybrid mode).
   const selectedSet = new Set(selection);
   const selectedCand = selection.length ? shapes.find((c) => c.elementIds.some((id) => selectedSet.has(id)))?.id : undefined;
   const wantsChip = (c: Candidate, node: AINode) =>
-    lens || c.id === selectedCand || c.id === openId || (mode === "hybrid" && node.status === "proposed");
+    lens || c.id === selectedCand || c.id === openId || node.status === "proposed";
 
   // Chips dodge each other, arrows and drawings: above, below, beside — else shrink to an icon.
   const chips = new Map<string, Placed>();
@@ -380,7 +377,6 @@ export function Overlay({ model, board, viewport: v, lens, selection, onFocus, s
                 color={color}
                 stale={stale}
                 pos={chip}
-                hybrid={mode === "hybrid"}
                 view={view}
                 viewOpen={view ? isOpen(view) : false}
                 onToggleView={() => view && toggleView(view)}
@@ -437,7 +433,7 @@ export function Overlay({ model, board, viewport: v, lens, selection, onFocus, s
           if (!e || e.status === "rejected") return null;
           const r = toScreen(l.bbox, v);
           if (!isOnScreen(r, v)) return null;
-          return <EdgeChip key={l.id} edge={e} x={r.left + r.width / 2} y={r.top + r.height / 2 + 22} hybrid={mode === "hybrid"} model={model} />;
+          return <EdgeChip key={l.id} edge={e} x={r.left + r.width / 2} y={r.top + r.height / 2 + 22} model={model} />;
         })}
 
       {lens &&
@@ -455,7 +451,6 @@ export function Overlay({ model, board, viewport: v, lens, selection, onFocus, s
               edge={e}
               x={(mid.x + v.scrollX) * v.zoom}
               y={(mid.y + v.scrollY) * v.zoom}
-              hybrid={mode === "hybrid"}
               model={model}
               inferred
             />
@@ -539,7 +534,6 @@ function NodeChip(props: {
   color: string;
   stale: boolean;
   pos: Placed;
-  hybrid: boolean;
   view?: ViewDef;
   viewOpen: boolean;
   onToggleView: () => void;
@@ -548,7 +542,7 @@ function NodeChip(props: {
   onConfirm: () => void;
   onReject: () => void;
 }) {
-  const { node, type, color, stale, pos, hybrid, view, viewOpen, onToggleView, onOpen, onHover, onConfirm, onReject } = props;
+  const { node, type, color, stale, pos, view, viewOpen, onToggleView, onOpen, onHover, onConfirm, onReject } = props;
   const proposed = node.status === "proposed";
   const title = `${node.type} · ${node.label}${node.summary ? `\n${node.summary}` : ""}`;
   if (pos.size === "icon") {
@@ -602,7 +596,7 @@ function NodeChip(props: {
           ▣
         </button>
       )}
-      {proposed && hybrid && (
+      {proposed && (
         <>
           <button type="button" className="chip-act ok" onClick={onConfirm} title="Confirm">
             ✓
@@ -616,13 +610,13 @@ function NodeChip(props: {
   );
 }
 
-function EdgeChip(props: { edge: AIEdge; x: number; y: number; hybrid: boolean; model: BoardModel; inferred?: boolean }) {
-  const { edge, x, y, hybrid, model, inferred } = props;
+function EdgeChip(props: { edge: AIEdge; x: number; y: number; model: BoardModel; inferred?: boolean }) {
+  const { edge, x, y, model, inferred } = props;
   const proposed = edge.status === "proposed";
   return (
     <div className={`edge-chip ${proposed ? "proposed" : ""} ${inferred ? "inferred" : ""}`} style={{ left: x, top: y }}>
       <span title={edge.label}>{edge.type}</span>
-      {proposed && hybrid && (
+      {proposed && (
         <>
           <button type="button" onClick={() => model.confirmEdge(edge.id)} title="Confirm">
             ✓
