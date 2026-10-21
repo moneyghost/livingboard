@@ -253,9 +253,10 @@ export function Overlay({ model, board, viewport: v, lens, selection, onFocus, s
       { x: r.left + r.width + 18, y: r.top + r.height - h },
       { x: r.left - w - 18, y: r.top + r.height - h },
     ].map((o) => ({ x: Math.min(Math.max(8, o.x), v.width - w - 8), y: Math.min(Math.max(8, o.y), v.height - h - 8) }));
-    const pos =
-      options.find((o) => !blocked({ x: o.x, y: o.y, w, h }, t.anchor!, chipRects)) ??
-      [...options].sort((a, b) => cost({ ...a, w, h }, t.anchor!, chipRects) - cost({ ...b, w, h }, t.anchor!, chipRects))[0];
+    // Never over what it talks about: near the screen edge the clamp can push it there.
+    const anchorRect = { x: r.left, y: r.top, w: r.width, h: r.height };
+    const costAt = (o: { x: number; y: number }) => cost({ ...o, w, h }, t.anchor!, chipRects) + (rectsOverlap(anchorRect, { ...o, w, h }) ? 3 : 0);
+    const pos = options.find((o) => costAt(o) === 0) ?? [...options].sort((a, b) => costAt(a) - costAt(b))[0];
     chipRects.push({ x: pos.x, y: pos.y, w, h });
     // A thin line from the bubble to the nearest point of what it talks about.
     const bc = { x: pos.x + w / 2, y: pos.y + h / 2 };

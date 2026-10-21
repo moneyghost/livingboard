@@ -46,6 +46,8 @@ function drawingSnapshot(els: El[]) {
   return { sig, texts };
 }
 const AGENT_IDLE_MS = 120_000;
+/** How long a drawing made in a browser for the agent keeps arriving before changes to it count as edits. */
+const ADOPT_MS = 3_000;
 /** Bump when the candidate hash changes meaning (v2: content, not element versions). */
 const HASH_VERSION = 2;
 const MAX_ACTIVITY = 150;
@@ -116,6 +118,8 @@ export class Board {
   private listeningCount = 0;
   /** Agent drawing id → the content the agent last knew (texts, parts, images). */
   private drawingSigs = new Map<string, { sig: string; texts: string[] }>();
+  /** When a drawing made in a browser for the agent first appeared (see the elements observer). */
+  private adopted = new Map<string, number>();
   /** Agent drawings a person touched, and when: reported once they settle, if their content changed. */
   private touchedDrawings = new Map<string, number>();
   /** Permission request id → the answer the agent was last told. */
@@ -156,10 +160,19 @@ export class Board {
         if (id) touched.add(id);
       }
       if (!touched.size) return;
-      if (tr.origin === SERVER) {
+      // A drawing id first seen from a browser was made there for the agent (draw_diagram converts
+      // Mermaid in the page): its first seconds are the baseline, not an edit by a person.
+      const now = Date.now();
+      const baseline: string[] = [];
+      for (const id of touched) {
+        if (tr.origin !== SERVER && !this.drawingSigs.has(id)) this.adopted.set(id, now);
+        if (tr.origin === SERVER || now - (this.adopted.get(id) ?? -Infinity) < ADOPT_MS) baseline.push(id);
+        else this.touchedDrawings.set(id, now);
+      }
+      if (baseline.length) {
         const groups = this.drawingGroups(true);
-        for (const id of touched) this.drawingSigs.set(id, drawingSnapshot(groups.get(id) ?? []));
-      } else for (const id of touched) this.touchedDrawings.set(id, Date.now());
+        for (const id of baseline) this.drawingSigs.set(id, drawingSnapshot(groups.get(id) ?? []));
+      }
     });
     this.settingsMap.observe((_e, tr) => {
       if (tr.origin === SERVER) return;
